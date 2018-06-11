@@ -1,6 +1,11 @@
 # Introduction au data management avec R >> dplyr
-On introduit les principales fonctions dplyr
+On introduit les principales fonctions dplyr ainsi que les principales fonctions de lectures de données : 
+- données SAS : haven::read_sas (éviter le package sas7bdat)
+- données Excel : readxl:read_xls readxl::read_xlsx (éviter le package xlsx)
+- données CSV et TXT : data.table::fread (éviter les fonctions de base read.csv et read.csv2 ainsi que le package readr)
+
 On montre comment reproduire des PROCs SAS avec dplyr en enchaînant des fonctions élémentaires avec %>%
+
 Si on veut reproduire une PROC en particulier, vérifier sur google si qqn n'a pas fait un package R pour ça. Exemple avec PROC COMPARE <-> package arsenal.
 
 # Exercices

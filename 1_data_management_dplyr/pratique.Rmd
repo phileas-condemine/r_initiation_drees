@@ -25,7 +25,6 @@ load("fichiers_prepared.RData")
 ```{r}
 finess_et <- finess_et%>%
   select(finessET,SIRET,cod_com,dep,APE,dateautor)
-
 ```
 
 
@@ -71,7 +70,6 @@ Toutes les variables sont traitées comme des char alors que seul codgeo le just
 ```{r}
 insee <- insee%>%mutate(CODGEO=as.factor(CODGEO))%>%
   mutate_if(is.character,as.numeric)
-
 ```
 
 
