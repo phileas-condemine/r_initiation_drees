@@ -163,12 +163,31 @@ Il est donc important de surveiller la consommation de RAM de la session et de
 Alors que faire ?
 - Charger une échantillon de données.
 - Anticiper l'empreinte mémoire des opérations à effectuer. Par exemple je dispose d'une table de 2 colonnes (coordonées GPS) et 10M de lignes, ne pas calculer brutalement la matrice des distances de taille 10M x 10M !
-- 
+- Augmenter la RAM en travaillant sur des infrastructures déportées dans des machines virtuelles. C'est possible, la DSI s'entraîne déjà à le faire, il suffit de déployer RStudio Server sur une VM, c'est fait en 10 minutes. Ce qui prend du temps c'est que la DSI accorde des VM avec suffisamment de RAM... La preuve, ce tutoriel en 12 commandes : https://www.vultr.com/docs/how-to-install-rstudio-server-on-centos-7
 
 
+
+
+
+
+# Chercher de l'aide sur internet : StackOverflow/StackExchange et les forums Google
 ## Commande de debugging - lire le traceback
+Le sujet est trop avancé pour cette formation alors je donne un lien : https://support.rstudio.com/hc/en-us/articles/205612627-Debugging-with-RStudio
+Il y a deux messages simples et importants : 
+- Lorsqu'on rencontre une erreur, il faut et il suffit de la copier coller dans un moteur de recherche (type google) pour trouver la réponse sur stackoverflow dans 99% des cas ! Quelques consignes supplémentaires sont données dans la section suivante
+- Lorsqu'une erreur apparaît au sein d'une fonction définie par l'utilisateur, le `traceback` permet en général de connaître la ligne à laquelle l'erreur a eu lieu, c'est pratique. 
 
-# Chercher de l'aide sur internet : stackoverflow
+Voici un exemple reproductible
+
+`test <- function(x){
+  print(x[[1]])
+  cumsum(x)
+  return(x/x)
+}
+test(data.frame(x=c(1,2,3),y=c("A","B","C")))
+traceback()`
+
+
 ## Copier-coller la partie importante de mon erreur
 - Si des noms de variable ou des numéros de lignes/colonnes sont mentionnés, il n'est probablement pas pertinent de les rappeler.
 - Si le message d'erreur est en français j'aurai sans doute plus de chance en le traduisant en anglais.
