@@ -1,0 +1,222 @@
+---
+title: "pratique data management dplyr"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(dplyr)
+library(readxl)
+```
+
+
+# Téléchargement des données
+Il est possible de lancer une téléchargement depuis R. Ceci simplifie la reproductibilité d'un projet.
+Le proxy "hydre.social.gouv.fr" du ministère bloque certaines méthodes par défaut, on précise donc libcurl.
+
+On trouve ici le fichier FINESS
+https://www.data.gouv.fr/fr/datasets/finess-extraction-du-fichier-des-etablissements/
+
+
+```{r téléchargement, eval=F}
+path_finess <- "https://www.data.gouv.fr/s/resources/finess-extraction-du-fichier-des-etablissements/20180608-093533/etalab_cs1100507_stock_20180608-0437.csv"
+
+path_insee <- "https://www.insee.fr/fr/statistiques/fichier/3126432/filo-revenu-pauvrete-menage-2014.zip"
+
+download.file(url = path_finess,destfile = "finess.csv",method = "libcurl")
+download.file(url = path_insee,destfile = "insee.zip",method = "libcurl")
+unzip(zipfile =  "insee.zip")
+```
+
+# Aperçu des fichiers bruts
+
+```{r}
+readLines("finess.csv",n=3)
+```
+
+```{r}
+readLines("insee.zip",n=3)
+```
+
+```{r}
+readLines("base-cc-filosofi-2014.xls",n=3)
+```
+# Lecture des données
+## Lecture du fichier csv
+
+```{r}
+finess <- readr::read_csv2("finess.csv")
+```
+
+```{r}
+finess <- data.table::fread("finess.csv",encoding = "Latin-1",fill=T)
+```
+
+## Lecture du fichier xls
+```{r}
+insee <- readxl::read_xls("base-cc-filosofi-2014.xls")
+```
+
+# Exploration des tables
+
+## Données INSEE
+```{r}
+head(insee)
+```
+
+```{r}
+labels_insee <- insee[4,]
+names(insee) <- insee[5,]
+insee <- insee[-(1:5),]
+```
+
+
+## Données FINESS
+
+```{r}
+finess <- finess[-1,]
+```
+
+
+```{r}
+head(finess)
+```
+
+Frederic Laurent
+4 juin 2018 
+En lisant la documentation, il me semblait que chaque ligne devait contenir 37 valeurs. Or l'analyse du fichier donne :
+
+1 ligne avec 4 valeurs
+95830 lignes avec 6 valeurs
+95829 lignes avec 32 valeurs
+
+donc les lignes ne sont pas toutes identiques et les 2 extractions sont cumulées.
+
+Je suggère donc que la documentation précise :
+
+qu'il y a plusieurs sections dans le fichier
+que le tableau soit scindé en 2 avec 1 numérotation des champs cohérente
+Donc au final, il y a bien les données géolocalisées mais pas comme attendu.
+cordialement.
+
+
+
+```{r}
+finess_et <- finess[1:96291,]
+finess_geo <- finess[96292:nrow(finess),1:6]
+```
+
+On copie-colle le tableau du pdf de documentation.
+```{r}
+finess_dictionnaire <- c("Donnée Balise XML Numéro d’ordre
+Section : structureet – 1
+Numéro FINESS ET nofinesset 2
+Numéro FINESS EJ nofinessej 3
+Raison sociale rs 4
+Raison sociale longue rslongue 5
+Complément de raison sociale complrs 6
+Complément de distribution compldistrib 7
+Numéro de voie numvoie 8
+Type de voie typvoie 9
+Libellé de voie voie 10
+Complément de voie compvoie 11
+Lieu-dit / BP lieuditbp 12
+Code Commune commune 13
+Département departement 14
+Libellé département libdepartement 15
+Ligne d’acheminement (CodePostal+Lib commune) ligneacheminement 16
+Téléphone telephone 17
+Télécopie telecopie 18
+Catégorie d’établissement categetab 19
+Libelle catégorie d’établissement libcategetab 20
+Catégorie d’agrégat d’établissement categagretab 21
+Libellé catégorie d’agrégat d’établissement libcategagretab 22
+Numéro de SIRET siret 23
+Code APE codeape 24
+Code MFT codemft 25
+Libelle MFT libmft 26
+Code SPH codesph 27
+Libelle SPH libsph 28
+Ref : etalab_cs1100507 Jeu de données FINESS pour ETALAB Page 2 / 8
+Donnée Balise XML Numéro d’ordre
+Date d’ouverture dateouv 29
+Date d’autorisation dateautor 30
+Date de mise à jour sur la structure datemaj 31
+Numéro éducation nationale numuai 32
+Section : geolocalisation – 33
+Numéro FINESS ET nofinesset 34
+Coordonnées X coordxet 35
+Coordonnées Y coordyet 36
+Source des coordonnées sourcecoordet 37
+Date de mise à jour des coordonnées datemaj 38")
+```
+
+```{r}
+finess_dictionnaire <- strsplit(finess_dictionnaire,split="\n")
+avec_numerotation=grep("[0-9]",finess_dictionnaire[[1]])
+finess_dictionnaire <- finess_dictionnaire[[1]][avec_numerotation]
+```
+
+Une ligne parasite s'est introduite.
+```{r}
+finess_dictionnaire <- finess_dictionnaire[-29]
+```
+
+```{r}
+names(finess_et) <- finess_dictionnaire[1:32]
+
+names(finess_geo) <- finess_dictionnaire[33:38]
+```
+
+```{r}
+names(finess_et) <- c("section",
+                      "finessET",
+                      "finessEJ",
+                      "raison_sociale",
+                      "raison_sociale_longue",
+                      "raison_sociale_cmpl",
+                      "distrib_cmpl",
+                      "numvoie",
+                      "typvoie",
+                      "libvoie",
+                      "compvoie",
+                      "lieuditbp",
+                      "cod_com",
+                      "dep",
+                      "libdep",
+                      "libach",
+                      "telephone",
+                      "telecopie",
+                      "categET",
+                      "libcategET",
+                      "categagregET",
+                      "libcategagregET",
+                      "SIRET",
+                      "APE",
+                      "MFT",
+                      "libMFT",
+                      "SPH",
+                      "libSPH",
+                      "dateouv",
+                      "dateautor",
+                      "datemaj",
+                      "numuai")
+
+names(finess_geo) <- c("section","finessET","X","Y","source","datemaj")
+
+```
+
+
+
+```{r}
+save(list=c("finess_et","finess_geo","insee"),file="fichiers_prepared.RData")
+```
+
+

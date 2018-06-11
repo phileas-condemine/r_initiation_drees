@@ -1,0 +1,205 @@
+---
+title: "pratique data management dplyr"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+```
+
+#Chargement des données
+```{r}
+load("fichiers_prepared.RData")
+```
+
+#Sélectionner les données qui vous paraissent pertinentes
+
+## FINESS établissement
+```{r}
+finess_et <- finess_et%>%
+  select(finessET,SIRET,cod_com,dep,APE,dateautor)
+
+```
+
+
+```{r}
+finess_et%>%
+  select(SIRET,dep)%>%
+  distinct()%>%
+  group_by(dep)%>%
+  summarise(count=n())%>%plot
+```
+
+
+## FINESS Geolocalisation
+
+On trouve 4 projections différentes : 
+
+```{r echo=FALSE}
+stringr::str_extract(string = finess_geo$source,pattern = "(LAMBERT_[0-9]+)|(UTM_N[0-9]+)")%>%table
+```
+
+On veut garder uniquement les établissements en France métropolitaine ie en coordonnées LAMBERT 93.
+On utilise une fonction similaire au `LIKE` dans SAS, il s'agit de `grep`/`grepl`. Cette fonction est héritée de la célèbre commande Linux du même nom. Son équivalent en invite de commande Windows est `findstr`.
+Des librairies R spécialisées dans la manipulation de chaînes de caractères proposent des implémentation plus rapides. On trouve <a href="https://rpubs.com/jonclayden/regex-performance">ici</a> un benchmark intéressant.
+
+
+```{r}
+finess_geo$is_lambert=grepl("LAMBERT",finess_geo$source)
+finess_geo <- finess_geo%>%filter(is_lambert)%>%select(-is_lambert)
+```
+
+## INSEE
+
+```{r}
+insee <- insee%>%
+  select(CODGEO,NBMENFISC14,MED14,D114,D914)
+```
+
+
+# Retraitement des données
+
+Toutes les variables sont traitées comme des char alors que seul codgeo le justifie.
+
+```{r}
+insee <- insee%>%mutate(CODGEO=as.factor(CODGEO))%>%
+  mutate_if(is.character,as.numeric)
+
+```
+
+
+Les statistiques qui nous intéressent sont parfois manquantes
+
+```{r}
+insee%>%lapply(function(x)sum(is.na(x)))
+```
+
+
+Est-ce que ces communes co-incident avec nos établissement ?
+
+# Jointure
+
+Construction du codgeo dans finess_et
+```{r}
+nb_chiffres_cod_com=nchar(finess_et$cod_com)
+nb_chiffres_cod_com%>%table
+
+finess_et[nb_chiffres_cod_com==1,]$cod_com <- paste0("00",finess_et[nb_chiffres_cod_com==1,]$cod_com)
+finess_et[nb_chiffres_cod_com==2,]$cod_com <- paste0("0",finess_et[nb_chiffres_cod_com==2,]$cod_com)
+
+
+finess_et <- finess_et%>%
+  mutate(CODGEO=paste0(dep,cod_com),
+         CODGEO=factor(CODGEO))
+```
+
+Comparaison des CODGEO FINESS et INSEE
+
+```{r}
+
+matching_fines_insee=!as.character(finess_et$CODGEO)%in%as.character(insee$CODGEO)
+sum(matching_fines_insee)
+
+
+finess_et$CODGEO[matching_fines_insee]%>%as.character%>%head
+```
+
+Il y a quelques soucis d'appariement des données, on ne va pas traiter ici la problématique des tables de transition des codes communes mais on donne qqpistes :
+## Traitement CODGEO - Package développé par Kim Antunez (SEEE)
+
+```{r eval=FALSE}
+devtools::install_github("antuki/COGugaison")
+```
+
+```{r}
+library(COGugaison)
+```
+
+```{r}
+COG_akinator(c("29084","29083","29084","29083","29083","9A101"),donnees_insee = T)
+apparier_COG(vecteur_codgeo=c("29084","29083","29084","29083","29083","9A101"),COG=2014)$absent_de_COG
+```
+
+## Traitement CODGEO - Webscraping
+
+On ne retrouve pas "9A101".
+https://www.insee.fr/fr/metadonnees/cog/unite-urbaine/UU20109A101-saint-louis
+https://www.insee.fr/fr/recherche/recherche-geographique?geo=UU2010-9A101&debut=0
+On peut scraper le site INSEE pour corriger ces unités urbaines, ou bien le faire à la main si elles sont assez rares.
+
+## Jointure FINESS & INSEE par CODGEO
+
+```{r}
+finess_et_enrichi=merge(finess_et,insee,by="CODGEO",all.x=T)
+```
+
+## Statistique croisée FINESS & INSEE
+
+```{r}
+# library(Hmisc)
+length(unique(finess_et$SIRET))
+siret_revenu_median=finess_et_enrichi%>%select(SIRET,MED14)%>%distinct
+siret_revenu_median%>%mutate(MED14_cutq10=Hmisc::cut2(MED14,g = 10))%>%group_by(MED14_cutq10)%>%summarise(count=length(unique(SIRET)))%>%plot
+```
+
+
+# Bonus
+
+## Compléter les valeurs manquantes dans insee avec des stats plus agrégées
+
+```{r}
+insee_epci=readxl::read_xls("base-cc-filosofi-2014.xls",sheet="EPCI")
+names(insee_epci) <- insee_epci[5,]
+insee_epci <- insee_epci[-(1:5),]
+insee_epci <- insee_epci%>%
+  select(CODGEO,NBMENFISC14,MED14,D114,D914)%>%
+  mutate(CODGEO=as.factor(CODGEO))%>%
+  mutate_if(is.character,as.numeric)%>%
+  rename(EPCI=CODGEO)
+insee_epci%>%lapply(function(x)sum(is.na(x)))
+
+```
+
+Il faut maintenant récupérer la correspondance entre code commune et EPCI
+https://www.insee.fr/fr/information/2028028
+
+```{r eval=F}
+correspondance_path="https://www.insee.fr/fr/statistiques/fichier/2028028/table-appartenance-geo-communes-18.zip"
+download.file(correspondance_path,destfile = "correspondance.zip",method="libcurl")
+unzip("correspondance.zip")
+```
+
+```{r}
+corres_com_epci=readxl::read_xls("table-appartenance-geo-communes-18.xls")
+names(corres_com_epci) <- corres_com_epci[5,]
+corres_com_epci <- corres_com_epci[-(1:5),]
+corres_com_epci <- corres_com_epci%>%select(CODGEO,EPCI)
+head(corres_com_epci)
+```
+
+
+```{r}
+nrow(insee)
+nrow(merge(insee,corres_com_epci,by="CODGEO"))
+# On retombe sur le même problème de correspondance entre communes 2017 et communes 2014
+insee <- merge(insee,corres_com_epci,by="CODGEO")
+```
+
+```{r}
+insee_epci <- insee_epci%>%mutate(EPCI=as.character(EPCI))
+insee_com_epci <- merge(insee,insee_epci,by="EPCI",all.x=T)
+
+missingD914 <- is.na(insee_com_epci$D914.x)
+sum(missingD914)
+insee_com_epci[missingD914,]$D914.x <- insee_com_epci[missingD914,]$D914.y
+sum(is.na(insee_com_epci$D914.x))
+```
+
+Il reste encore beaucoup de valeurs manquantes, on peut encore utiliser les statistiques au niveau ARR, DEP, REG.

@@ -1,0 +1,47 @@
+---
+title: "Graphiques avec ggplot2 & plotly"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+
+# Chargement des données
+
+```{r}
+load("../1_data_management_dplyr/fichiers_prepared.RData")
+```
+
+
+# Graphiques de base
+
+## Diagramme en barres ou colonnes(barplot)
+
+```{r}
+stats <- finess_et%>%group_by(libcategagregET)%>%summarise(nb_etablissement=n())
+g <- ggplot(data=stats)+geom_col(aes(x=libcategagregET,y=nb_etablissement))
+g
+# stats <- stats%>%arrange(nb_etablissement)
+stats <- stats%>%mutate(libcategagregET = factor(libcategagregET, levels = libcategagregET[order(nb_etablissement)]))
+
+g <- ggplot(data=stats)+geom_col(aes(x=libcategagregET,y=nb_etablissement))
+g
+g+theme(axis.text.x = element_text(angle = 90))
+```
+
+
+
+```{r}
+
+```
+
