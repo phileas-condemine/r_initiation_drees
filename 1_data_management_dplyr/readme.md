@@ -1,4 +1,7 @@
 # Introduction au data management avec R >> dplyr
+
+Voici le lien vers la présentation : http://rpubs.com/arifelk/GUEPARD2
+
 On introduit les principales fonctions dplyr ainsi que les principales fonctions de lectures de données : 
 - données SAS : haven::read_sas (éviter le package sas7bdat)
 - données Excel : readxl:read_xls readxl::read_xlsx (éviter le package xlsx)
@@ -21,3 +24,17 @@ Un préparation de ces données est proposée dans le script
 
 Vous pouvez directement partir du fichier de données préparées :
 load("fichiers_prepared.RData")
+
+Il s'agit d'une pratique "libre". L'objectif est de manipuler un jeu de données réelles avec les fonctions dplyr vue précédemment.
+
+Voici une suggestion d'exercices "résolus" dans pratique.Rmd 
+
+- Sélectionner les variables qui vous intéressent avec `select` et vérifier qu'il y a une ligne par établissement (SIRET ou FINESS_ET) avec `distinct`
+- Sélectionner les observations pertinentes dans finess_geo (choisir un système de coordonnées cohérent) avec `filter`
+- Construire le CODGEO commune dans la base FINESS à partir du DEP et code commune en utilisant `mutate`
+- Si nécessaire renommer les variables avec `rename`
+- Apparier les bases FINESS et INSEE avec la fonction `merge`ou `left_join`
+- Trier les établissements par une variable INSEE d'intérêt, par exemple MED14 le revenu médian, avec la fonction `arrange`
+- Construire des stats desc en croisant INSEE et FINESS avec `group_by` et `summarise`
+- N'hésitez pas à réutiliser des fonctions vues dans les slides de la présentation http://rpubs.com/arifelk/GUEPARD2
+
