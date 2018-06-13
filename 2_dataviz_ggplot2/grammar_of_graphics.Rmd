@@ -10,9 +10,10 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r load packages, message=FALSE, warning=FALSE}
 library(dplyr)
 library(ggplot2)
+library(data.table)
 ```
 
 
@@ -39,9 +40,141 @@ g
 g+theme(axis.text.x = element_text(angle = 90))
 ```
 
+## Séries temporelles
+
+```{r}
+finess_et <- finess_et%>%
+  mutate(dateautor=as.Date(dateautor,"%Y-%m-%d"),
+         yearautor=year(dateautor),
+         monthautor=month(dateautor))
+year(finess_et$dateautor)%>%summary
+
+# finess_et%>%filter(yearautor<1900) # bizarre....
+
+finess_et%>%
+  filter(yearautor>1900) %>%
+  group_by(yearautor
+           # ,monthautor
+           )%>%
+  summarise(nb_autor=n())%>%
+  {ggplot(.)+
+      geom_col(aes(x=yearautor,y=nb_autor))
+      # geom_col(aes(x=paste0(yearautor,monthautor),y=nb_autor))
+      }%>%(plotly::ggplotly)
+# Autre solution avec substr, attention si la date n'est pas renseignée...
+# finess_et <- finess_et %>%
+#   mutate(yearautor=substr(dateautor,1,4))
+head(finess_et$yearautor)
+```
+
+Investigons ces établissements qui ont reçu leur autorisation en 2017
 
 
 ```{r}
+library(plotly)
+# https://plot.ly/r/pie-charts/
+finess_et%>%filter(yearautor==2017)%>%
+  group_by(libcategET)%>%
+  summarise(nb_ET=n())%>%
+  plot_ly(labels = ~libcategET, values = ~nb_ET, type = 'pie') %>%
+  layout(title = 'Répartition des établissements ayant reçu une autorisation en 2017, par catégorie'
+         ,xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)
+         )
+```
+
+
+Comparons avec les autres années :
+
+```{r}
+finess_et%>%filter(!yearautor==2017)%>%
+  group_by(libcategET)%>%
+  summarise(nb_ET=n())%>%
+  plot_ly(labels = ~libcategET, values = ~nb_ET, type = 'pie') %>%
+  layout(title = 'Répartition des établissements ayant reçu une autorisation en 2017, par catégorie'
+         ,xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)
+         )
+```
+
+
+
+
+
+série temp par catégorie ?
+On va retenir les 10 categories les plus fréquentes et tracer l'évolution des ouvertures pour chacune.
+
+
+
+```{r}
+finess_et%>%
+    filter(yearautor>1900) %>%
+  # ON FILTRE LE TOP 10 DES libcategET
+  group_by(libcategET)%>%
+  mutate(volume_categ=n())%>%#mutate au lieu de summarise, comme un group_by + merge
+  ungroup()%>%
+  arrange(-volume_categ)%>%{
+    (.)%>%select(libcategET)%>%distinct()%>%head(10)->top10categ#Attention à la notation .%>% https://stackoverflow.com/questions/36716710/combining-pipes-and-the-dot-placeholder-in-r?rq=1
+    print(top10categ)
+    (.)%>%filter(libcategET %in% top10categ$libcategET)
+  }%>%
+  # ON CALCULE LE NOMBRE DE SIRET PAR yearautor PAR TOP10 categ
+  group_by(libcategET,yearautor)%>%
+  summarise(nb_autorisation=n())%>%
+  plot_ly(x=~yearautor,y=~nb_autorisation,color=~libcategET,mode="lines")
+# https://plot.ly/r/time-series/
+```
+
+ 
+ 
+Suivi sur les SIRET multi-lignes
+
+Remarques : il faudrait peut-être investiguer les 13770 SIRET NA.
+
+Sélection du TOP10 des SIRET multi-lignes
+```{r}
+
+top10_SIRET_multilignes=finess_et%>%
+  group_by(SIRET)%>%
+  summarise(nb_ligne_par_SIRET=n())%>%
+  filter(nb_ligne_par_SIRET>1)%>%
+  filter(!is.na(SIRET))%>%
+  arrange(-nb_ligne_par_SIRET)%>%
+  head(10)
 
 ```
 
+Changement de référentiel de coordonnées
+```{r}
+library(rgdal)
+finess_geo <- finess_geo%>%mutate(X=as.numeric(X),Y=as.numeric(Y))
+finess_geo <- na.omit(finess_geo)
+
+coordinates(finess_geo) <- c("X", "Y")
+proj4string(finess_geo) <- CRS("+init=epsg:2154") # WGS 84
+CRS.new <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+finess_geo <- spTransform(finess_geo, CRS.new)
+finess_geo$lon <- data.frame(coordinates(finess_geo))$X
+finess_geo$lat <- data.frame(coordinates(finess_geo))$Y
+
+```
+
+Carte : 
+```{r}
+library(leaflet)
+pal <- colorNumeric(c("red", "green", "blue"), 1:10)
+finess_et%>%
+  filter(SIRET%in%top10_SIRET_multilignes$SIRET)%>%
+  merge(finess_geo,by="finessET")%>% ###%>%select(finessET,lon,lat)
+  arrange(dateautor)%>%
+leaflet()%>%
+  addTiles()%>%
+  addCircleMarkers(lng=~lon, lat=~lat, color=~pal(as.numeric(factor(SIRET))),  label=~paste0("SIRET:",SIRET,"finessET",finessET,"\ndateautor:",dateautor)
+                   # , clusterOptions = markerClusterOptions()
+                   )
+
+```
+ 
+ Pour approfondir sur l'utilisation de leaflet, un présentation sympa : 
+ https://bhaskarvk.github.io/leaflet-talk-rstudioconf-2017/RstudioConf2017.html#28
+ 

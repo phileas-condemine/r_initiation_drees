@@ -5,3 +5,4 @@
 *.pdf
 *.RData
 *.Rproj.user
+.Rproj.user
