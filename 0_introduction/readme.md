@@ -14,7 +14,17 @@
 - 17h : [Pratique]  modèles & sélection de variables
 - 17h20 : [Conclusions]
 
+# Pourquoi une formation aux packages du tidyverse plutôt que R Base ?
+Vous pouvez trouver <a href="http://rpubs.com/arifelk/359957">ici</a> une formation co-écrite avec Stéphanie Combes qui consacre beaucoup de temps aux base de R.<br>
+Au quotidien, les agents ont surtout besoin de maîtriser quelques fonctions de manipulation de tables de données pour réaliser des sélections, des jointures et des statistiques descriptives. C'est le thème de la matinée. <br>
+L'après-midi nous traiterons les différents sujets récurrents en atelier projet R. L'objectif est de vous donner un aperçu de tâches faisables facilement avec R. Vous disposerez du code et pourrez ainsi reproduire ces démarches si nécessaire.<br>
+Une fois conscients de l'étendue des possibles avec R, il vous sera plus facile de venir participer à un atelier projet R afin d'appliquer à vos besoins spécifiques avec le support d'agents expérimentés.<br>
+Cette journée de formation est dense et très complète, j'ai volontairement laissé un sujet crucial de côté : le développement d'applications Shiny. En effet, Shiny est un package R qui vient avec un paradigme de programmation très différent.<br>
+La bonne nouvelle c'est que dans 99% des cas, pour développer une app Shiny on commence par réutiliser une appli pré-éxistante trouvée en générale dans <a href="https://shiny.rstudio.com/gallery/">la galerie officielle</a> qui contient des applis avec leur code ou dans <a href="http://dataviz.drees.solidarites-sante.gouv.fr">la galerie de la DREES</a> dont les codes sont sur le gitlab de la DREES.<br>
+
+
 # Introduction à R
+
 ## Open Source
 Lorsqu'on lance R on voit un message :<br>
 "R is free software and comes with ABSOLUTELY NO WARRANTY"<br>
