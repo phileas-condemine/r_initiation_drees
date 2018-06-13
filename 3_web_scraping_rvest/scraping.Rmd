@@ -1,0 +1,158 @@
+---
+title: "Webscraping avec R"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Récupération d'une table statique
+
+
+```{r}
+library(rvest)
+url="https://en.wikipedia.org/wiki/Lists_of_communes_of_France"
+page_wikipedia=read_html(url)
+
+table_communes_metro=page_wikipedia%>%html_node(".wikitable")%>%html_table()
+table_communes_metro
+```
+
+# Geocoding avec Nomitatim (OpenStreetMap)
+```{r}
+adresse="10 place des 5 martyrs du lycee buffon, Paris"
+adresse <- gsub(" ","+",adresse)
+url <- sprintf("https://nominatim.openstreetmap.org/search?q=%s&format=xml&polygon=1&addressdetails=1",adresse)
+geocode <- read_xml(url)
+
+geocode <- geocode%>%html_node("place")
+lat <- geocode%>%html_attr("lat")%>%as.numeric
+lon <- geocode%>%html_attr("lon")%>%as.numeric
+library(leaflet)
+leaflet()%>%addTiles()%>%addMarkers(lng=lon,lat=lat)
+```
+
+Il ne reste qu'à boucler sur vos adresses.<br>
+Ceci dit, en France il vaut mieux s'appuyer sur le service data.gouv.fr basé sur la Base Adresses Nationale : 
+https://adresse.data.gouv.fr/csv<br>
+
+
+
+# Scraping d'un formulaire
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+submit_request = function(form, submit = NULL) {
+  is_submit <- function(x)
+    if ( is.null(x$type) ) FALSE else
+      tolower(x$type) %in% c("submit", "image", "button")
+
+  submits <- Filter(is_submit, form$fields)
+
+  if (length(submits) == 0) {
+    stop("Could not find possible submission target.", call. = FALSE)
+  }
+  if (is.null(submit)) {
+    submit <- names(submits)[[1]]
+    message("Submitting with '", submit, "'")
+  }
+  if (!(submit %in% names(submits))) {
+    stop("Unknown submission name '", submit, "'.\n", "Possible values: ", 
+         paste0(names(submits), collapse = ", "), call. = FALSE)
+  }
+  other_submits <- setdiff(names(submits), submit)
+  method <- form$method
+  if (!(method %in% c("POST", "GET"))) {
+    warning("Invalid method (", method, "), defaulting to GET", 
+            call. = FALSE)
+    method <- "GET"
+  }
+  url <- form$url
+  fields <- form$fields
+  fields <- Filter(function(x) length(x$value) > 0, fields)
+  fields <- fields[setdiff(names(fields), other_submits)]
+  values <- pluck(fields, "value")
+  names(values) <- names(fields)
+  list(method = method, encode = form$enctype, url = url, values = values)
+}
+
+submit_form = function(session, form, submit = NULL, ...) {
+  request <- submit_request(form, submit)
+  url <- xml2::url_absolute(form$url, session$url)
+  if (request$method == "GET") {
+    rvest:::request_GET(session, url = url, query = request$values, ...)
+  } else if (request$method == "POST") {
+    rvest:::request_POST(session, url = url, body = request$values, 
+                         encode = request$encode, ...)
+  } else {
+    stop("Unknown method: ", request$method, call. = FALSE)
+  }
+}
+
+
+
+download_lieu_dit = function(lieu_dit,url,
+                        dir = ".",
+                        filename = paste(lieu_dit, "txt", sep = ".") ) {
+
+  session = 
+    url %>%
+    html_session
+
+  form = 
+    session %>%
+    html_form %>%
+    .[[1]] %>%
+    set_values(lieux_nom = lieu_dit)
+
+  tempfile = tempfile(".zip")
+
+  submit_form(session, form, submit = NULL,
+              httr::write_disk(tempfile,
+                               overwrite = TRUE),
+              httr::add_headers(Referer = session$url) )
+
+  filename = file.path(dir, filename)
+  print(filename)
+  tempfile %>%
+    unzip(exdir = dir) %>%
+    file.rename(filename)
+
+  filename
+}
+
+read_ida = function(filename) {
+
+  col_names = 
+    filename %>%
+    readr::read_tsv(comment = "#", n_max = 1, col_names = FALSE)
+
+  filename %>%
+    readr::read_tsv(comment = "#", skip= 2, col_names = FALSE) %>%
+    stats::setNames(col_names)
+}
+
+lieu_dit="L HOPITAL"
+url <- "https://territoires-fr.fr/lieux-list1.php"
+
+download_lieu_dit(lieu_dit,url)%>%read_ida
+```
+
+
+```{r}
+lieu_dit="L HOPITAL"
+url <- "https://territoires-fr.fr/lieux-list1.php"
+session <- html_session(url)
+formulaire <- session%>%html_form()%>%.[[1]]
+formulaire_rempli <- formulaire%>%set_values(lieux_nom=lieu_dit)
+resultats <- submit_form(session = session,
+                         form = formulaire_rempli,
+                         submit="executer")
+resultats
+
+```
+
