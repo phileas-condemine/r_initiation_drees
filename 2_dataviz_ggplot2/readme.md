@@ -62,5 +62,5 @@ passage du + au %>% ?
 
 3) leaflet pour réaliser des cartographies interactives
 
-4) Pour avoir plus d'infos sur les possibilités de cartogrpahie avec R, consulter le doc de Kim Antunez présenté en séminaire GUEPARD le 8 juin 2018.
+4) Pour avoir plus d'infos sur les possibilités de cartographie avec R, consulter le <a href="https://gitlab.com/DREES_code/OUTILS/seminaires-guepard/tree/master/Cartographie%20avec%20Excel%20et%20R">doc de Kim Antunez</a> présenté en séminaire GUEPARD le 8 juin 2018.
 Cette présentation montre des différentes méthodes de cartographie statiques, dynamiques ou interactives.
