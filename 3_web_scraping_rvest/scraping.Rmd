@@ -7,19 +7,24 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+library(knitr)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Récupération d'une table statique
+```{r load pkg, message=FALSE, warning=FALSE}
+library(rvest)
+library(dplyr)
+```
 
 
 ```{r}
-library(rvest)
+
 url="https://en.wikipedia.org/wiki/Lists_of_communes_of_France"
 page_wikipedia=read_html(url)
 
 table_communes_metro=page_wikipedia%>%html_node(".wikitable")%>%html_table()
-table_communes_metro
+as.tbl(table_communes_metro)
 ```
 
 # Geocoding avec Nomitatim (OpenStreetMap)
@@ -37,8 +42,11 @@ leaflet()%>%addTiles()%>%addMarkers(lng=lon,lat=lat)
 ```
 
 Il ne reste qu'à boucler sur vos adresses.<br>
-Ceci dit, en France il vaut mieux s'appuyer sur le service data.gouv.fr basé sur la Base Adresses Nationale : 
+Ceci dit, en France il vaut mieux s'appuyer sur le service data.gouv.fr basé sur la Base Adresses Nationale : <br>
 https://adresse.data.gouv.fr/csv<br>
+
+Voici un exemple d'application qui utilise le reverse geocoding.<br>
+https://drees.shinyapps.io/simplex_menu_creation/<br>
 
 
 
@@ -46,6 +54,7 @@ https://adresse.data.gouv.fr/csv<br>
 
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
+#Fix bug rvest #https://stackoverflow.com/questions/39443357/rvest-trouble-post-submission/39515073#39515073
 submit_request = function(form, submit = NULL) {
   is_submit <- function(x)
     if ( is.null(x$type) ) FALSE else
@@ -92,54 +101,6 @@ submit_form = function(session, form, submit = NULL, ...) {
     stop("Unknown method: ", request$method, call. = FALSE)
   }
 }
-
-
-
-download_lieu_dit = function(lieu_dit,url,
-                        dir = ".",
-                        filename = paste(lieu_dit, "txt", sep = ".") ) {
-
-  session = 
-    url %>%
-    html_session
-
-  form = 
-    session %>%
-    html_form %>%
-    .[[1]] %>%
-    set_values(lieux_nom = lieu_dit)
-
-  tempfile = tempfile(".zip")
-
-  submit_form(session, form, submit = NULL,
-              httr::write_disk(tempfile,
-                               overwrite = TRUE),
-              httr::add_headers(Referer = session$url) )
-
-  filename = file.path(dir, filename)
-  print(filename)
-  tempfile %>%
-    unzip(exdir = dir) %>%
-    file.rename(filename)
-
-  filename
-}
-
-read_ida = function(filename) {
-
-  col_names = 
-    filename %>%
-    readr::read_tsv(comment = "#", n_max = 1, col_names = FALSE)
-
-  filename %>%
-    readr::read_tsv(comment = "#", skip= 2, col_names = FALSE) %>%
-    stats::setNames(col_names)
-}
-
-lieu_dit="L HOPITAL"
-url <- "https://territoires-fr.fr/lieux-list1.php"
-
-download_lieu_dit(lieu_dit,url)%>%read_ida
 ```
 
 
@@ -152,7 +113,14 @@ formulaire_rempli <- formulaire%>%set_values(lieux_nom=lieu_dit)
 resultats <- submit_form(session = session,
                          form = formulaire_rempli,
                          submit="executer")
-resultats
 
+
+resultats%>%
+  html_node(".sortable")%>%
+  html_table(fill=T)%>%
+  .[,1:6]%>%
+  select(INSEE,`Libellé minuscules`,`Lieu-dit`)%>%
+  as.tbl
 ```
 
+A vous d'essayer !
