@@ -253,8 +253,8 @@ glmnet_model <- glmnet(x=explanatory_train,
        family="poisson",
        alpha=1,
        nlambda=100,#par défaut
-       thresh = 1e-05,#par défaut
-       maxit=1e5)
+       thresh = 1e-06,#par défaut
+       maxit=1e7)
 plot(glmnet_model$lambda,glmnet_model$dev.ratio)
 # Distribution des coefficients en fonction du lambda.
 plot(glmnet_model, xvar='lambda',label=T)
@@ -276,13 +276,13 @@ NFOLDS=10
 for (alpha in 0:10/10){
   print(alpha)
   
-  tryCatch(rm(glmnet_model,pred_glmnettest),warning = function(w) {
+  tryCatch(rm(glmnet_cv,pred_glmnettest),warning = function(w) {
     print(paste("warning",w))
 }, error = function(e) {
     print(paste("error",e))
 })
   tryCatch({
-glmnet_model = cv.glmnet(x = explanatory_train, y = target_train, 
+glmnet_cv = cv.glmnet(x = explanatory_train, y = target_train, 
                               family = "poisson",#'gaussian', 
                               # Pénalisation L1 100%
                               alpha = alpha,
@@ -291,16 +291,16 @@ glmnet_model = cv.glmnet(x = explanatory_train, y = target_train,
                               # 5-fold cross-validation
                               nfolds = NFOLDS,
                               # valeurs élevée pour un entraînement plus rapide mais moins performant
-                              thresh = 1e-5,
+                              thresh = 3e-5,
                               # On limite le nombre d'itérations
-                              maxit = 1e4)
-s1se=glmnet_model$lambda.1se
-smin=glmnet_model$lambda.min
-  pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=0)[,1],obs=target_test)
+                              maxit = 1e6)
+s1se=glmnet_cv$lambda.1se
+smin=glmnet_cv$lambda.min
+  pred_glmnettest=data.frame(pred=predict(glmnet_cv,newx = explanatory_test,type="response",s=0)[,1],obs=target_test)
   print(paste("s=0",Gini(pred_glmnettest)))
-  pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=smin)[,1],obs=target_test)
+  pred_glmnettest=data.frame(pred=predict(glmnet_cv,newx = explanatory_test,type="response",s=smin)[,1],obs=target_test)
   print(paste("s=smin",Gini(pred_glmnettest)))
-    pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=s1se)[,1],obs=target_test)
+    pred_glmnettest=data.frame(pred=predict(glmnet_cv,newx = explanatory_test,type="response",s=s1se)[,1],obs=target_test)
   print(paste("s=s1se",Gini(pred_glmnettest)))
   },warning = function(w) {
     print(paste("warning",w))
@@ -313,19 +313,15 @@ Gini(pred_glmtest)
 
 ## Comparaison pour différents lambda
 ```{r}
-plot(glmnet_model)
+plot(glmnet_cv)
 ```
 
 ## Coefficients du modèle pour le "meilleur" lambda
+Des idées pratiques en anglais <a href="https://stats.stackexchange.com/questions/77546/how-to-interpret-glmnet">ici</a> <br>
+et théoriques en français <a href="https://pbil.univ-lyon1.fr/R/pdf/br5.pdf">ici</a> 
 ```{r}
-print(paste("min deviance =", round(min(glmnet_classifier$cvm), 4)))
-
-# Des idées pratiques en anglais ici : https://stats.stackexchange.com/questions/77546/how-to-interpret-glmnet
-# et théoriques en français ici : https://pbil.univ-lyon1.fr/R/pdf/br5.pdf
-
-s1se=glmnet_model$lambda.1se
-smin=glmnet_model$lambda.min
-
+s1se=glmnet_cv$lambda.1se
+smin=glmnet_cv$lambda.min
 coeff_glmnet=coef(glmnet_model,s=s1se)
 coeff_glmnet
 ```
@@ -404,5 +400,131 @@ Gini(perf_train)
 
 # GBM (gradient boosting method)
 
+
+##  Préparation des données
 L'avantage des modèles basés sur des arbres de décision, c'est qu'un arbre de décision sait bien gérer les NA.<br>
-Par exemple pour un arbre binaire, on peut imaginer séparer les NA dans un 3ème split, ou bien séparer NA vs le reste. La contrainte imposée par les variables continues est bien moins forte que dans un GLM. Avec un arbre si on coupe X à un seuil th (choisi par le modèle), on peut déciser de regrouper les NA avec le groupe 1 `X<th` ou avec le groupe 2 `X>th`.
+Par exemple pour un arbre binaire, on peut imaginer séparer les NA dans un 3ème split, ou bien séparer NA vs le reste. La contrainte imposée par les variables continues est bien moins forte que dans un GLM. Avec un arbre si on coupe X à un seuil th (choisi par le modèle), on peut déciser de regrouper les NA avec le groupe 1 `X<th` ou avec le groupe 2 `X>th`.<br>
+L'imputation n'est pas nécessaire ici.
+```{r}
+data_model%>%head
+```
+
+```{r}
+params=c(shrinkage=.01,
+         nb_trees=1000,
+         depth=10,
+         nminobs=10,
+         bag.frac=.2)
+
+gbm_model <- gbm(nb_ET~.
+                 ,data=data_model[train,]
+                 ,verbose=T
+                 ,train.fraction=.8
+                 ,shrinkage = params[1]
+                 ,n.trees = params[2]
+                 ,interaction.depth = params[3]
+                 ,n.minobsinnode = params[4]
+                 ,bag.fraction = params[5]
+                 )
+
+pred_gbmtrain=data.frame(pred=predict(gbm_model,
+                                     newdata = data_model[train,]),
+                        obs=target_train)
+
+pred_gbmtest=data.frame(pred=predict(gbm_model,
+                                     newdata = data_model[-train,]),
+                        obs=target_test)
+print(paste("gbm test:",Gini(pred_gbmtest)))
+print(paste("gbm train:",Gini(pred_gbmtrain)))
+print(paste("glm:",Gini(pred_glmnettest)))
+
+```
+
+
+Il y a plus d'overfitting (écart de 1 point entre train et test) dans le GBM que dans le GLM, mais il y a aussi un fit de bien meilleur qualité, on va comparer les courbes GLM et GBM sur le test.
+
+## Courbe de Lorenz
+
+```{r}
+
+pred_gbmtest%>%
+    na.omit%>%
+    arrange(-pred)%>%
+    mutate(y=cumsum(obs)/sum(obs),x=(1:nrow(.))/nrow(.))%>%
+    {
+      data.frame(y100=quantile(.$y,0:100/100),
+                 x100=quantile(.$x,0:100/100))
+    }->Lorenz_gbm_points
+
+
+g <- g +
+    geom_line(data = Lorenz_gbm_points,
+              aes(x=x100,y=y100,color="gbm"))
+g%>%ggplotly
+```
+
+## Interprétation d'un GBM
+
+### Importance des variables
+
+```{r}
+vars=summary(gbm_model)$var%>%as.character
+summary(gbm_model)
+```
+
+
+### Effet marginal moyen
+Attention, contrairement à un GLM, ces courbes ne s'interprètent pas comme des effets toutes choses égales par ailleurs parce qu'elles s'appuient sur la distribution réelle des données.
+
+```{r}
+plot(gbm_model,i.var=vars[1])
+plot(gbm_model,i.var=vars[2])
+plot(gbm_model,i.var=vars[3])
+plot(gbm_model,i.var=vars[4])
+```
+
+A comparer avec les valeurs réellement prises par ces variables, les extrêmes sont estimés mais souvent les valeurs sont aberrantes et non significatives.<br>
+## Monotonie des variables
+
+Si nécessaire on peut imposer la monotonie des variables, ceci réduira le surapprentissage et donnera des effets plus propres/plus interprétables.<br>
+
+dans gbm : `var.monotone` il convient de donner un vecteur nommé (avec les noms des variables explicatives) et des valeurs -1 si décroissante, 1 si croissante, 0 si absence de contrainte.<br>
+
+```{r}
+monotony=rep(0,ncol(data_model)-1)
+names(monotony) <- setdiff(names(data_model),"nb_ET")
+monotony["NBMENFISC14"] <- 1
+```
+
+
+```{r}
+params=c(shrinkage=.01,
+         nb_trees=1000,
+         depth=10,
+         nminobs=10,
+         bag.frac=.2)
+
+gbm_model <- gbm(nb_ET~.
+                 ,var.monotone = monotony
+                 ,data=data_model[train,]
+                 ,verbose=T
+                 ,train.fraction=.8
+                 ,shrinkage = params[1]
+                 ,n.trees = params[2]
+                 ,interaction.depth = params[3]
+                 ,n.minobsinnode = params[4]
+                 ,bag.fraction = params[5]
+                 )
+
+pred_gbmtrain=data.frame(pred=predict(gbm_model,
+                                     newdata = data_model[train,]),
+                        obs=target_train)
+
+pred_gbmtest=data.frame(pred=predict(gbm_model,
+                                     newdata = data_model[-train,]),
+                        obs=target_test)
+print(paste("gbm test:",Gini(pred_gbmtest)))
+print(paste("gbm train:",Gini(pred_gbmtrain)))
+print(paste("glm:",Gini(pred_glmnettest)))
+```
+
