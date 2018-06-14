@@ -1,4 +1,4 @@
----
+﻿---
 title: "Modélisation statistique"
 output: 
   html_document:
@@ -528,3 +528,14 @@ print(paste("gbm train:",Gini(pred_gbmtrain)))
 print(paste("glm:",Gini(pred_glmnettest)))
 ```
 
+
+Pour en savoir plus sur la simplification des modèles de machine learning complexes, voici un article sur "interpretable machine learning" <a href="https://mlr-org.github.io/interpretable-machine-learning-iml-and-mlr/">IML</a><br>
+
+Dans le cas spécifique des GBM des méthodes adhoc existent parce qu'un arbre peut être vu comme un ensemble d'indicatrices sur des croisements de variables.<br>
+Il y a potentiellement autant de croisements que la profondeur de l'arbre.<br>
+Si on décide d'utiliser des "stumps" arbres de profondeur 1 alors chaque arbre est une indicatrice sur 1 variable. Autrement dit ce sont des GLM (parce qu'il y a quand même une fonction de lien) avec des interactions d'ordre 1.<br>
+Si on décide d'utiliser des arbres de profondeur 2 alors les arbres construisent des indicatrices sur des croisements de 2 variables. Autrement dit ce sont des GLM avec des interactions d'ordre 2.<br>
+Or un GBM (idem pr random forest) est une somme pondérée d'arbres de décisions.<br>
+Et une somme pondérée (combinaison linéaire) de GLM est encore un GLM.<br>
+Bref on peut ramener un GBM de profondeur 1 ou 2 à un GLM avec des interactions d'ordre 1 ou 2.<br>
+Ceci dit il y aura beaucoup de coefficients donc on est plus proche d'une GAM non paramétrique que d'un GLM (au lieu de splines on utilise des fonctions constantes par morceaux)<br>
