@@ -1,9 +1,8 @@
 # Organisation de la journée
 - 9h30 : [Introduction]
-- 10h : [Présentation & questions] data management avec R >> dplyr
 - 10h30 : [Pause]
-- 10h45 : [Pratique] data management avec R >> dplyr  
-- 12h : [Pause] Déjeuner
+- 10h45 : [Présentation 45mins, pratique 45mins] data management avec R >> dplyr  
+- 12h15 : [Pause] Déjeuner
 - 13h30 : [Présentation & questions] graphiques
 - 14h : [Pratique] graphiques
 - 14h45 : [Pause]
