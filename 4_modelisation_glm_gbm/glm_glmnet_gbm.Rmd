@@ -1,0 +1,408 @@
+---
+title: "Modélisation statistique"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+# Préparation
+## Packages
+
+```{r load pkg, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(glmnet)
+library(gbm)
+```
+
+
+##  Chargement des données
+```{r}
+load("../1_data_management_dplyr/fichiers_prepared.RData")
+```
+
+```{r add code commune, message=FALSE, warning=FALSE, include=FALSE}
+nb_chiffres_cod_com=nchar(finess_et$cod_com)
+nb_chiffres_cod_com%>%table
+
+finess_et[nb_chiffres_cod_com==1,]$cod_com <- paste0("00",finess_et[nb_chiffres_cod_com==1,]$cod_com)
+finess_et[nb_chiffres_cod_com==2,]$cod_com <- paste0("0",finess_et[nb_chiffres_cod_com==2,]$cod_com)
+
+
+finess_et <- finess_et%>%
+  mutate(CODGEO=paste0(dep,cod_com))
+```
+
+## Jointure INSEE & FINESS
+
+```{r}
+nb_ET_CODGEO=finess_et%>%
+  group_by(CODGEO)%>%
+  summarise(nb_ET=n())
+
+sum(!nb_ET_CODGEO$CODGEO%in%insee$CODGEO)
+
+nb_ET_CODGEO=merge(nb_ET_CODGEO,insee,by="CODGEO",all.y=T)
+nb_ET_CODGEO <- nb_ET_CODGEO%>%mutate(nb_ET=ifelse(is.na(nb_ET),0,nb_ET))
+table(nb_ET_CODGEO$nb_ET)%>%head
+```
+
+## Sélection des variables pour entraîner un modèle
+
+```{r}
+data_model <-  nb_ET_CODGEO%>%
+  select(-LIBGEO,-CODGEO)%>%
+  mutate_if(is.character,as.numeric)
+```
+
+## Echantillonage pour séparer apprentissage/test ie train / test
+```{r}
+train=sample(x = nrow(data_model),size = round(.65*nrow(data_model)))
+```
+
+
+# GLM
+
+## Préparation des données
+Les valeurs manquantes sont très mal gérées par les GLM, on va donc imputer par la moyenne.<br>
+Il existe de nombreuses stratégies d'imputation donc certaines s'appuient sur des modèles de machine learning avancé : 
+- Moyenne
+- Médiane
+- HotDeck
+- HotDeck stratifié
+- k plus proches voisins (kNN)
+- Régression/classification GLM
+- Régression/classification CART
+- Régression/classification GBM/RandomForest
+
+Il existe plusieurs packages R qui implémente des stratégies d'imputation comme MICE ou simputation.<br>
+Lorsque les contraintes et le contexte sont très spécifiques et demande une maîtrise importante, il ne faut pas hésiter à implémenter son modèle d'imputation. <br>
+Vous pouvez vous référer à la présentation (Séminaire EIG #2) sur l'imputation des non-réponses partielles pour l'enquête OC :
+https://gitlab.com/DREES_code/OSAM/enquete_oc
+
+
+```{r}
+data_model_imputed_for_glm=data_model%>%
+  mutate_all(function(x)ifelse(is.na(x),mean(x,na.rm=T),x))
+```
+
+
+## Entraînement du modèle
+Un GLM dans R ce décrit comme une formule `Y~X1+X2+X3` où Y est la variable à expliquer/prédire et X1, X2, X4 les variables explicatives.<br>
+Lorsqu'on a déjà sélectionné les variables pertinentes pour le modèle, il suffit d'écrit `.` pour utiliser toutes les variables disponibles sauf Y.<br>
+Si on a souhaité conserver la variable `ID` et qu'on souhaite garder toutes les variables sauf ID il suffit d'écrire `Y~.-ID`.<br>
+
+On peut ajuster le modèle avec un certain nombre de parmaètres facultatifs.
+- <a href="http://stat.ethz.ch/R-manual/R-devel/library/stats/html/family.html">Choisir</a> la fonction de lien (log, inverse, logit, identité...) et la loi conditionnelle. Si on a oublié quelle est la fonction de lien canonique associée à une loi de la famille exponentielle, pas de problème, elle est assignée par défaut.
+- On peut préciser un ou plusieurs `offset` (coeff fixé, pas forcément à 1).
+- Pondérer les observations avec `weights` (par exemple si on veut donner moins d'importance aux données plus anciennes). Des idées générales sur cette approche, valable pour la plupart des modèles prédictifs. <a href="https://stats.stackexchange.com/questions/196653/assigning-more-weight-to-more-recent-observations-in-regression">ici</a>.
+- On peut définir les `contrasts` pour préciser quelle catégorie doit être utilisée comme référence pour une variable explicative catégorielle.
+
+```{r}
+model <- glm(nb_ET~.,
+             data=data_model_imputed_for_glm[train,],
+             family=poisson(link = "log"))
+```
+
+## Coefficients du modèle
+```{r}
+coeff_glm=summary(model)$coefficients
+coeff_glm
+```
+
+## Prediction
+```{r}
+pred_glmtrain=data.frame(pred=predict(model,newdata = data_model_imputed_for_glm[train,],type="response"), obs=data_model[train,]$nb_ET)
+
+perf_train=data.frame(pred=data_model[train,]$nb_ET, obs=data_model[train,]$nb_ET)
+
+
+pred_glmtest=data.frame(pred=predict(model,newdata = data_model_imputed_for_glm[-train,],type="response"),obs=data_model[-train,]$nb_ET)
+
+
+perf_test=data.frame(pred=data_model[-train,]$nb_ET, obs=data_model[-train,]$nb_ET)
+
+
+
+```
+
+## Courbe de Lorenz ou Gain Curves
+Il s'agit des courbes de mesure des inégalités de richesse. <br>
+Ici on les applique à la mesure des inégalités de `Y` (dans notre cas `nb_ET`) dans la population : 
+- La courbe "perfection" décrit les vraies d'inégalités
+- La courbe "random" décrit un modèle incapable de discerner les inégalités
+- La courbe "glm" décrit la capacité de notre modèle à appréhender (car échantillon de test) les inégalités
+
+L'intérêt d'une telle mesure est qu'on peut définir 
+- ce qu'est un "mauvais" modèle (random)
+- ce qu'est un "bon" modèle (perfection)
+et comparer notre modèle à ces deux extrêmes.<br>
+Cette approche est inspirée de l'étude de la courbe de ROC pour les modèles binaires (Bernoulli).
+
+L'inconvénient est que cette métrique mesure les inégalités en rang et pas en taille.
+
+```{r}
+
+
+pred_glmtest%>%
+    na.omit%>%
+    arrange(-pred)%>%
+    mutate(y=cumsum(obs)/sum(obs),x=(1:nrow(.))/nrow(.))%>%
+    {
+      data.frame(y100=quantile(.$y,0:100/100),
+                 x100=quantile(.$x,0:100/100))
+    }->Lorenz_glm_points
+  
+pred_glmtest%>%
+    na.omit%>%
+    arrange(-obs)%>%
+    mutate(y=cumsum(obs)/sum(obs),x=(1:nrow(.))/nrow(.))%>%
+    {
+      data.frame(y100=quantile(.$y,0:100/100),
+                 x100=quantile(.$x,0:100/100))
+    }->Perfection
+  
+g <- ggplot()+
+    geom_line(data = Lorenz_glm_points,
+              aes(x=x100,y=y100,color="glm"))+
+    geom_line(data = Perfection,
+              aes(x=x100,y=y100,color="perfection")) +
+    geom_line(data=data.frame(x100=c(0,1), yrandom=c(0,1)),
+              aes(x=x100,y=yrandom,color="random"))
+  
+g 
+```
+
+
+## Coeff de Gini 
+Par extension de l'AUC sous la ROC, on calcule l'AUC sous la courbe de Lorenz. <br>
+Cette métrique, translatée (X->2*X-1) pour se comparer à "random" est appelée indice de Gini.<br> 
+Pour bien faire, on peut rapporter le Gini du modèle au Gini de la "perfection" pour que notre indice ait des valeurs POSSIBLES entre 0 et 1.
+
+```{r}
+Gini=function(pred){
+  pred%>%
+    na.omit%>%
+    arrange(-pred)%>%
+    mutate(y=cumsum(obs)/sum(obs),x=(1:nrow(.))/nrow(.))%>%
+    {
+      # print(paste0("nombre_de_lignes:",nrow(.)," indice de Gini:"))
+      2*mean(.$y)-1
+      }
+}
+Gini(pred_glmtest)
+Gini(perf_test)
+Gini(pred_glmtrain)
+Gini(perf_train)
+```
+
+Performance faible mais pas d'overfitting ie peu d'écart entre apprentissage et test.
+
+
+
+
+# GLMNET ou Elastic Net (mix L1 & L2)
+## Qu'est-ce que c'est ?
+Très bonne explication <a href="https://www.quora.com/In-ridge-regression-and-lasso-what-is-lambda"> ici</a>.
+2 paramètres à choisir : 
+- alpha qui équilibre entre les pénalisations L1 et L2.
+- lambda qui équilibre la fonction de perte entre vraisemblance et pénalisation sur la taille des coefficients
+Lambda élevé signifie une pénalisation importante sur la taille des coefficients. <br>
+Lambda faible signifie qu'on est proche d'un GLM classique non pénalisé.<br>
+
+Le package R glmnet test automatiquement et de manière optimisé plusieurs lambda.<br>
+En revanche c'est à nous de tester plusieurs paramètres alpha. C'est ce qu'on appelle l'optimisation des hyperparamètres (hyperparameters tuning). La méthode qui consiste à tester les combinaisons des différents hyperparamètres s'appelle gridsearch.<br>
+La méthode gourmande/gloutonne (bruteforce) consiste à tester toutes les combinaisons.<br>
+Il existe des <a href="https://arimo.com/data-science/2016/bayesian-optimization-hyperparameter-tuning/">méthodes bayesiennes</a> pour explorer intelligemment la grille de valeurs. <br>
+De nombreux packages R sont disponibles, <a href="https://mlr-org.github.io/Stepwise-Bayesian-Optimization-with-mlrMBO">mlrMBO</a> est plutôt bien maintenu.
+<br>
+Mais ces considérations dépassent l'ambition de cette formation.<br>
+
+
+## Préparation des données
+Dans R il y a beaucoup de liberté quant au traitement des données avec les formats matrix, data.frame, data.table...<br>
+Pour glm, on avait un modèle de la forme `cible ~ variables explicatives` ou `Y~X` avec Y et X dans un même data.frame. <br>
+Pour glmnet, on doit fournir Y comme un vecteur et X comme une matrice de valeurs numériques.<br>
+Par conséquent les variables catégorielles devront être binarisées (dummy variables), ce procédé s'appelle le one-hot encoding. C'est très simple en R, il suffit d'utiliser la fonction model.matrix. Un exemple <a href="https://www.r-bloggers.com/encoding-categorical-variables-one-hot-and-beyond/">ici</a><br>
+Pas besoin d'y recourir dans notre cas. Si 
+
+```{r}
+
+target_train = data_model_imputed_for_glm[train,]$nb_ET
+explanatory_train = data_model_imputed_for_glm[train,]%>%
+  select(-nb_ET)%>%as.matrix
+
+target_test = data_model_imputed_for_glm[-train,]$nb_ET
+explanatory_test = data_model_imputed_for_glm[-train,]%>%
+  select(-nb_ET)%>%as.matrix
+```
+
+
+
+## Entraînement du modèle
+`thresh` est le coefficient de convergence. On peut lire dans la documentation : <br>
+thresh Convergence threshold for coordinate descent. Each inner coordinate-descent<br>
+loop continues until the maximum change in the objective after any coefficient<br>
+update is less than thresh times the null deviance. Defaults value is 1E-7.<br>
+
+```{r}
+glmnet_model <- glmnet(x=explanatory_train,
+       y=target_train,
+       family="poisson",
+       alpha=1,
+       nlambda=100,#par défaut
+       thresh = 1e-05,#par défaut
+       maxit=1e5)
+plot(glmnet_model$lambda,glmnet_model$dev.ratio)
+# Distribution des coefficients en fonction du lambda.
+plot(glmnet_model, xvar='lambda',label=T)
+
+s=sample(glmnet_model$lambda,1)
+smin=min(glmnet_model$lambda)
+  pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=0)[,1],obs=target_test)
+  print(paste("s=0",Gini(pred_glmnettest)))
+  pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=smin)[,1],obs=target_test)
+  print(paste("s=smin=",smin,"Gini=",Gini(pred_glmnettest)))
+    pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=s)[,1],obs=target_test)
+  print(paste("s=random",s,"Gini=",Gini(pred_glmnettest)))
+```
+## [Avancé] cross-validation et choix du lambda optimal
+Pour automatiser et rationnaliser le choix du lambda on fait de la validation croisée (cross-validation) ie on coupe le dataset en NFOLDS, disons en 10, et entraîne sur 90% vs validation sur 10% 10 fois.
+```{r}
+
+NFOLDS=10
+for (alpha in 0:10/10){
+  print(alpha)
+  
+  tryCatch(rm(glmnet_model,pred_glmnettest),warning = function(w) {
+    print(paste("warning",w))
+}, error = function(e) {
+    print(paste("error",e))
+})
+  tryCatch({
+glmnet_model = cv.glmnet(x = explanatory_train, y = target_train, 
+                              family = "poisson",#'gaussian', 
+                              # Pénalisation L1 100%
+                              alpha = alpha,
+                              # On s'intéresse à la deviance - on suppose que la distribution conditionnelle suit une loi de Poisson
+                              type.measure = "deviance",#'rmse'
+                              # 5-fold cross-validation
+                              nfolds = NFOLDS,
+                              # valeurs élevée pour un entraînement plus rapide mais moins performant
+                              thresh = 1e-5,
+                              # On limite le nombre d'itérations
+                              maxit = 1e4)
+s1se=glmnet_model$lambda.1se
+smin=glmnet_model$lambda.min
+  pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=0)[,1],obs=target_test)
+  print(paste("s=0",Gini(pred_glmnettest)))
+  pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=smin)[,1],obs=target_test)
+  print(paste("s=smin",Gini(pred_glmnettest)))
+    pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=s1se)[,1],obs=target_test)
+  print(paste("s=s1se",Gini(pred_glmnettest)))
+  },warning = function(w) {
+    print(paste("warning",w))
+}, error = function(e) {
+    print(paste("error",e))
+})
+}
+Gini(pred_glmtest)
+```
+
+## Comparaison pour différents lambda
+```{r}
+plot(glmnet_model)
+```
+
+## Coefficients du modèle pour le "meilleur" lambda
+```{r}
+print(paste("min deviance =", round(min(glmnet_classifier$cvm), 4)))
+
+# Des idées pratiques en anglais ici : https://stats.stackexchange.com/questions/77546/how-to-interpret-glmnet
+# et théoriques en français ici : https://pbil.univ-lyon1.fr/R/pdf/br5.pdf
+
+s1se=glmnet_model$lambda.1se
+smin=glmnet_model$lambda.min
+
+coeff_glmnet=coef(glmnet_model,s=s1se)
+coeff_glmnet
+```
+
+
+# Comparaison des modèles GLM vs GLMNET
+
+## Comparaison des coefficients
+```{r}
+# On prépare la table des coeffs de glmnet
+coeff_glmnet=as.matrix(coeff_glmnet)
+coeff_glmnet=data.frame(var=rownames(coeff_glmnet),coeff_glmnet=coeff_glmnet[,1])
+coeff_glmnet$var=as.character(coeff_glmnet$var)
+
+# On prépare la table des coeffs de glm
+coeff_glm=data.frame(var=rownames(coeff_glm),coeff_glm=coeff_glm[,1])
+coeff_glm$var=as.character(coeff_glm$var)
+
+# On joint les deux tables et on les compare
+comparaison_coeff=merge(coeff_glm,coeff_glmnet,by="var")
+comparaison_coeff%>%
+  mutate(ratio_glm_sur_glmnet=coeff_glm/coeff_glmnet)%>%
+  as.tbl
+
+
+```
+
+## Corrélation entre les variables explicatives
+
+Pour bien comprendre ce qui se passe, on jette un oeil à la matrice des corrélations. On se rend compte que lorsque deux variables sont très corrélées, en général le glmnet n'apprend que sur l'une des deux ie le coeff de l'autre passe à 0 ! C'est de la sélection de variables
+
+```{r}
+cor(explanatory_train)%>%as.data.frame->cormat
+rownames(cormat) <- colnames(cormat)
+knitr::kable(cormat)
+```
+
+
+
+## Prediction du GLMNET
+```{r}
+pred_glmnettrain=data.frame(pred=predict(glmnet_model,newx = explanatory_train,type="response")[,1],obs=target_train)
+
+pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=smin)[,1],obs=target_test)
+```
+
+## Courbe de Lorenz 
+
+```{r}
+pred_glmnettest%>%
+    na.omit%>%
+    arrange(-pred)%>%
+    mutate(y=cumsum(obs)/sum(obs),x=(1:nrow(.))/nrow(.))%>%
+    {
+      data.frame(y100=quantile(.$y,0:100/100),
+                 x100=quantile(.$x,0:100/100))
+    }->Lorenz_glmnet_points
+
+
+g <- g +
+    geom_line(data = Lorenz_glmnet_points,
+              aes(x=x100,y=y100,color="glmnet"))
+g%>%ggplotly
+```
+
+## Coeff de Gini
+
+```{r}
+Gini(pred_glmtest)
+Gini(pred_glmnettest)
+Gini(perf_test)
+Gini(pred_glmtrain)
+Gini(pred_glmnettrain)
+Gini(perf_train)
+```
+
+# GBM (gradient boosting method)
+
+L'avantage des modèles basés sur des arbres de décision, c'est qu'un arbre de décision sait bien gérer les NA.<br>
+Par exemple pour un arbre binaire, on peut imaginer séparer les NA dans un 3ème split, ou bien séparer NA vs le reste. La contrainte imposée par les variables continues est bien moins forte que dans un GLM. Avec un arbre si on coupe X à un seuil th (choisi par le modèle), on peut déciser de regrouper les NA avec le groupe 1 `X<th` ou avec le groupe 2 `X>th`.
