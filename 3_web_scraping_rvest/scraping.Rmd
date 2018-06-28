@@ -23,9 +23,22 @@ library(dplyr)
 url="https://en.wikipedia.org/wiki/Lists_of_communes_of_France"
 page_wikipedia=read_html(url)
 
-table_communes_metro=page_wikipedia%>%html_node(".wikitable")%>%html_table()
+table_communes_metro=page_wikipedia%>%
+  html_node(".wikitable")%>%
+  html_table()
 as.tbl(table_communes_metro)
 ```
+
+
+```{r}
+
+
+page_wikipedia%>%html_node(".nowraplinks")%>%html_table()
+
+```
+
+
+
 
 # Geocoding avec Nomitatim (OpenStreetMap)
 ```{r}
@@ -38,7 +51,7 @@ geocode <- geocode%>%html_node("place")
 lat <- geocode%>%html_attr("lat")%>%as.numeric
 lon <- geocode%>%html_attr("lon")%>%as.numeric
 library(leaflet)
-leaflet()%>%addTiles()%>%addMarkers(lng=lon,lat=lat)
+leaflet()%>%addTiles()%>%addMarkers(lng=lon,lat=lat,popup = "DREES")
 ```
 
 Il ne reste qu'à boucler sur vos adresses.<br>

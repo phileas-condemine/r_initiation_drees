@@ -80,7 +80,7 @@ insee%>%lapply(function(x)sum(is.na(x)))
 ```
 
 
-Est-ce que ces communes co-incident avec nos établissement ?
+Est-ce que ces communes co-incident avec nos établissements ?
 
 # Jointure
 

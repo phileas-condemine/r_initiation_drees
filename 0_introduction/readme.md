@@ -1,17 +1,15 @@
 # Organisation de la journée
 - 9h30 : [Introduction]
-- 10h30 : [Pause]
-- 10h45 : [Présentation 45mins, pratique 45mins] data management avec R >> dplyr  
-- 12h15 : [Pause] Déjeuner
-- 13h30 : [Présentation & questions] graphiques
-- 14h : [Pratique] graphiques
+- 11h00 : [Pause]
+- 11h15 : [Présentation] Data management avec R >> dplyr  
+- 12h30 : [Pause] Déjeuner
+- 13h45 : [Pratique] Data management avec R >> dplyr
 - 14h45 : [Pause]
-- 15h : [Présentation & questions] webscraping
-- 15h30 : [Pratique] webscraping
-- 16h15 : [Pause]
-- 16h30 : [Présentation & questions] modèles & sélection de variables
-- 17h : [Pratique]  modèles & sélection de variables
-- 17h20 : [Conclusions]
+- 15h : [Présentation] Graphiques avec ggplot2
+- 15h50 : [Pratique] Graphiques avec ggplot2
+- 16h30 : [Pause]
+- 16h45 : [Présentation] modèles & sélection de variables
+- 17h15 : [Conclusions]
 
 # Pourquoi une formation aux packages du tidyverse plutôt que R Base ?
 Vous pouvez trouver <a href="http://rpubs.com/arifelk/359957">ici</a> une formation co-écrite avec Stéphanie Combes qui consacre beaucoup de temps aux base de R.<br>

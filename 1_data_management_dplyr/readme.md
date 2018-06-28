@@ -11,6 +11,8 @@ On montre comment reproduire des PROCs SAS avec dplyr en enchaînant des fonction
 
 Si on veut reproduire une PROC en particulier, vérifier sur google si qqn n'a pas fait un package R pour ça. Exemple avec PROC COMPARE <-> package arsenal.
 
+Pour vous y retrouver parmi toutes les fonctions de dplyr, voici une <a href="https://www.rstudio.com/wp-content/uploads/2016/01/data-wrangling-french.pdf"> anti-sèche</a>.
+
 # Exercices
 
 Données sources

@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Modélisation statistique"
 output: 
   html_document:
@@ -59,7 +59,7 @@ data_model <-  nb_ET_CODGEO%>%
 
 ## Echantillonage pour séparer apprentissage/test ie train / test
 ```{r}
-train=sample(x = nrow(data_model),size = round(.65*nrow(data_model)))
+train=sample(x = 1:nrow(data_model),size = round(.65*nrow(data_model)))
 ```
 
 
@@ -144,8 +144,6 @@ Cette approche est inspirée de l'étude de la courbe de ROC pour les modèles b
 L'inconvénient est que cette métrique mesure les inégalités en rang et pas en taille.
 
 ```{r}
-
-
 pred_glmtest%>%
     na.omit%>%
     arrange(-pred)%>%

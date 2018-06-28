@@ -1,4 +1,4 @@
-# Gallerie de graphes avec ggplot2
+# Galerie de graphes avec ggplot2
 Il suffit de recherche "ggplot2" dans Google pour trouver des dizaines de sites qui recensent des applications de ggplot2 esthétiques et parfois inattendues.
 
 ## Approche didactique avec le code sur datacamp : 
@@ -34,9 +34,9 @@ Dans ggplot2 il y a NORMALEMENT un seul axe des ordonnées. <br>
 MAIS si on veut vraiment, il est possible d'ajouter un second axe mais ce n'est pas "naturel", un exemple ici https://rpubs.com/MarkusLoew/226759.<br>
 ### Couches ou layers
 ggplot2 permet de superposer des graphiques, des options, des thèmes en les ajoutant couche par couche. En général on procède dans cet ordre : 
-- Initialisation d'un objet ggplot2 avec `ggplot()`. En général on définit les données à grapher et les coordonnées communes à toutes les couches graphiques ici
+- Initialisation d'un objet ggplot2 avec `ggplot()`. En général on définit les données à grapher dans le premier paramètre `data` et les paramètres graphiques généraux par exemple les axes x (abscisses) et y (ordonnées) encapsulés dans la fonction `aes()` pour aesthetics. Exemple : `ggplot(data=stat,aes(x=dep,y=moyenne))`.
 - Ajout d'une ou plusieurs couche(s) graphique(s) geom_ telle(s) que `geom_point()` `geom_line()` `geom_bar()` `geom_col()` `geom_smooth()`
-- Modification de la légende et des axes avec `themes()` `scale_`
+- Modification de la légende et des axes avec `themes()` `scale_`, `labs()`
 Remarque, pour des graphes simples, on utilise parfois qplot pour exprimer en un seul appel de fonction l'initialisation de l'objet et la couche graphique.
 
 ### aes pour gérer les paramètres visuels
