@@ -2,7 +2,15 @@ library(dplyr)
 load("1_data_management_dplyr/fichiers_prepared.RData")
 
 # pourquoi le %>% ?
-summarise(
+
+summarise(group_by(distinct(select(finess_et,SIRET,dep)),dep),count=n())
+
+
+arrange(.data = finess_et,dep)
+
+decompte_finess_dep
+
+temp = summarise(
   group_by(
     distinct(
       select(finess_et,SIRET,dep)
@@ -10,13 +18,32 @@ summarise(
     )
   ,count=n()
   )
+temp$proportion=temp$count/sum(temp$count)
+
 
 finess_et%>%
+  select(SIRET,dep)%>%
+  distinct()%>%# blabla
+  
+  
+  #blabla
+  
+  group_by(dep)%>%
+  summarise(nombre=n())%>%
+  mutate(proportion=nombre/sum(nombre))-> decompte_finess_dep
+
+decompte_finess_dep <- finess_et%>%
   select(SIRET,dep)%>%
   distinct()%>%
   group_by(dep)%>%
   summarise(nombre=n())%>%
-  mutate(proportion=nombre/sum(nombre))-> decompte_finess_dep
+  mutate(proportion=nombre/sum(nombre))
+
+
+
+head(decompte_finess_dep)
+tail(decompte_finess_dep)
+View(decompte_finess_dep)
 
 # assign pour les jusqu'au-bout-istes
 rm("decompte_finess_dep")

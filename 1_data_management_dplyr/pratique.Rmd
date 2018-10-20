@@ -14,12 +14,18 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 ```
 
-#Chargement des données
+# Chargement des données
 ```{r}
 load("fichiers_prepared.RData")
 ```
 
-#Sélectionner les données qui vous paraissent pertinentes
+```{r}
+library(data.table)
+fwrite(x = cbind(finess_et,finess_geo),file = "donnees_finess2.csv")
+```
+
+
+# Sélectionner les données qui vous paraissent pertinentes
 
 ## FINESS établissement
 ```{r}
@@ -37,7 +43,7 @@ finess_et%>%
 ```
 
 
-## FINESS Geolocalisation
+## FINESS Géolocalisation
 
 On trouve 4 projections différentes : 
 
@@ -98,7 +104,7 @@ finess_et <- finess_et%>%
          CODGEO=factor(CODGEO))
 ```
 
-Comparaison des CODGEO FINESS et INSEE
+Comparaison des CODGEO des tables FINESS et INSEE
 
 ```{r}
 

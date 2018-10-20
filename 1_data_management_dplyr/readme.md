@@ -1,42 +1,45 @@
 # Introduction au data management avec R >> dplyr
 
-Voici le lien vers la présentation : http://rpubs.com/arifelk/GUEPARD2
+Voici le lien vers la prÃ©sentation : http://rpubs.com/arifelk/GUEPARD2
 
-On introduit les principales fonctions dplyr ainsi que les principales fonctions de lectures de données : 
-- données SAS : haven::read_sas (éviter le package sas7bdat)
-- données Excel : readxl:read_xls readxl::read_xlsx (éviter le package xlsx)
-- données CSV et TXT : data.table::fread (éviter les fonctions de base read.csv et read.csv2 ainsi que le package readr)
+On introduit les principales fonctions dplyr ainsi que les principales fonctions de lectures de donnÃ©es : 
+- donnÃ©es SAS : haven::read_sas (Ã©viter le package sas7bdat)
+- donnÃ©es Excel : readxl:read_xls readxl::read_xlsx (Ã©viter le package xlsx)
+- donnÃ©es CSV et TXT : data.table::fread (Ã©viter les fonctions de base read.csv et read.csv2 ainsi que le package readr)
 
-On montre comment reproduire des PROCs SAS avec dplyr en enchaînant des fonctions élémentaires avec %>%
+On montre comment reproduire des PROCs SAS avec dplyr en enchaÃ®nant des fonctions Ã©lÃ©mentaires avec %>%
 
-Si on veut reproduire une PROC en particulier, vérifier sur google si qqn n'a pas fait un package R pour ça. Exemple avec PROC COMPARE <-> package arsenal.
+Si on veut reproduire une PROC en particulier, vÃ©rifier sur Google si qqn n'a pas fait un package R pour Ã§a. Exemple avec PROC COMPARE <-> package arsenal.
 
-Pour vous y retrouver parmi toutes les fonctions de dplyr, voici une <a href="https://www.rstudio.com/wp-content/uploads/2016/01/data-wrangling-french.pdf"> anti-sèche</a>.
+Pour vous y retrouver parmi toutes les fonctions de dplyr, voici une <a href="https://www.rstudio.com/wp-content/uploads/2016/01/data-wrangling-french.pdf"> anti-sÃ¨che</a>.
 
 # Exercices
 
-Données sources
-1) fichier FINESS geolocalisé
+DonnÃ©es sources
+1) fichier FINESS geolocalisÃ©
   https://www.data.gouv.fr/fr/datasets/finess-extraction-du-fichier-des-etablissements/
 2) fichier INSEE FiLosFi
   https://www.insee.fr/fr/statistiques/fichier/3126432/filo-revenu-pauvrete-menage-2014.zip
 
-Un préparation de ces données est proposée dans le script
+Un prÃ©paration de ces donnÃ©es est proposÃ©e dans le script
 "data_cleaning.Rmd"
 
-Vous pouvez directement partir du fichier de données préparées :
+Vous pouvez directement partir du fichier de donnÃ©es prÃ©parÃ©es :
 load("fichiers_prepared.RData")
 
-Il s'agit d'une pratique "libre". L'objectif est de manipuler un jeu de données réelles avec les fonctions dplyr vue précédemment.
+Il s'agit d'une pratique "libre". L'objectif est de manipuler un jeu de donnÃ©es rÃ©elles avec les fonctions dplyr vue prÃ©cÃ©demment.
 
-Voici une suggestion d'exercices "résolus" dans pratique.Rmd 
-
-- Sélectionner les variables qui vous intéressent avec `select` et vérifier qu'il y a une ligne par établissement (SIRET ou FINESS_ET) avec `distinct`
-- Sélectionner les observations pertinentes dans finess_geo (choisir un système de coordonnées cohérent) avec `filter`
-- Construire le CODGEO commune dans la base FINESS à partir du DEP et code commune en utilisant `mutate`
-- Si nécessaire renommer les variables avec `rename`
+Voici une suggestion d'exercices "rÃ©solus" dans pratique.Rmd 
+- Jeter un oeil Ã  vos donnÃ©es avec les fonctions `head` et `View`
+- SÃ©lectionner les variables qui vous intÃ©ressent avec `select` et vÃ©rifier qu'il y a une ligne par Ã©tablissement (SIRET ou FINESS_ET) avec `distinct` et `nrow`
+- SÃ©lectionner les observations pertinentes dans finess_geo (choisir un systÃ¨me de coordonnÃ©es cohÃ©rent) avec `filter`
+- Construire le CODGEO commune dans la base FINESS Ã  partir du DEP et code commune en utilisant `mutate` et `paste`
+- Si nÃ©cessaire renommer les variables avec `rename`
 - Apparier les bases FINESS et INSEE avec la fonction `merge`ou `left_join`
-- Trier les établissements par une variable INSEE d'intérêt, par exemple MED14 le revenu médian, avec la fonction `arrange`
+- Trier les Ã©tablissements par une variable INSEE d'intÃ©rÃªt, par exemple MED14 le revenu mÃ©dian, avec la fonction `arrange`
 - Construire des stats desc en croisant INSEE et FINESS avec `group_by` et `summarise`
-- N'hésitez pas à réutiliser des fonctions vues dans les slides de la présentation http://rpubs.com/arifelk/GUEPARD2
+- Ajouter des variables synthÃ©tiques avec `group_by` et `mutate`
+- N'hÃ©sitez pas Ã  rÃ©utiliser des fonctions vues dans les slides de la prÃ©sentation http://rpubs.com/arifelk/GUEPARD2
+
+Une proposition de "solution" se trouve dans les fichiers pratique.Rmd et pratique.html
 
