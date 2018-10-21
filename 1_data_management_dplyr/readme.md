@@ -4,8 +4,10 @@ Voici le lien vers la présentation : http://rpubs.com/arifelk/GUEPARD2
 
 On introduit les principales fonctions dplyr ainsi que les principales fonctions de lectures de données : 
 - données SAS : haven::read_sas (éviter le package sas7bdat)
-- données Excel : readxl:read_xls readxl::read_xlsx (éviter le package xlsx)
 - données CSV et TXT : data.table::fread (éviter les fonctions de base read.csv et read.csv2 ainsi que le package readr)
+- données Excel : readxl:read_xls readxl::read_xlsx (éviter le package xlsx)
+- concernant l'écriture/la création de fichiers Excel, vous pouvez utiliser le package openxlsx
+
 
 On montre comment reproduire des PROCs SAS avec dplyr en enchaînant des fonctions élémentaires avec `%>%`
 Pour économiser le `x <- x %>% f` on peut utiliser la <a href="https://stackoverflow.com/questions/46275951/magrittr-two-way-pipe-and-multiple-conditions">formule abrégée</a> `x %<>% f` issue du package `magrittr`.
@@ -28,9 +30,6 @@ Un préparation de ces données est proposée dans le script
 Vous pouvez directement partir du fichier de données préparées :
 - `load("1_data_management_dplyr/fichiers_prepared.RData")`
 - Certaines variables sont traitées comme des chaînes de caractères mais sont en fait des variables numériques `insee%<>%mutate_at(3:28,as.numeric)`
-
-
-
 
 Il s'agit d'une pratique "libre". L'objectif est de manipuler un jeu de données réelles avec les fonctions dplyr vue précédemment.
 
