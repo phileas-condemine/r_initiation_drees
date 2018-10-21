@@ -7,7 +7,8 @@ On introduit les principales fonctions dplyr ainsi que les principales fonctions
 - données Excel : readxl:read_xls readxl::read_xlsx (éviter le package xlsx)
 - données CSV et TXT : data.table::fread (éviter les fonctions de base read.csv et read.csv2 ainsi que le package readr)
 
-On montre comment reproduire des PROCs SAS avec dplyr en enchaînant des fonctions élémentaires avec %>%
+On montre comment reproduire des PROCs SAS avec dplyr en enchaînant des fonctions élémentaires avec `%>%`
+Pour économiser le `x <- x %>% f` on peut utiliser la <a href="https://stackoverflow.com/questions/46275951/magrittr-two-way-pipe-and-multiple-conditions">formule abrégée</a> `x %<>% f` issue du package `magrittr`.
 
 Si on veut reproduire une PROC en particulier, vérifier sur Google si qqn n'a pas fait un package R pour ça. Exemple avec PROC COMPARE <-> package arsenal.
 
@@ -25,7 +26,11 @@ Un préparation de ces données est proposée dans le script
 "data_cleaning.Rmd"
 
 Vous pouvez directement partir du fichier de données préparées :
-load("fichiers_prepared.RData")
+- `load("1_data_management_dplyr/fichiers_prepared.RData")`
+- Certaines variables sont traitées comme des chaînes de caractères mais sont en fait des variables numériques `insee%<>%mutate_at(3:28,as.numeric)`
+
+
+
 
 Il s'agit d'une pratique "libre". L'objectif est de manipuler un jeu de données réelles avec les fonctions dplyr vue précédemment.
 
@@ -42,4 +47,3 @@ Voici une suggestion d'exercices "résolus" dans pratique.Rmd
 - N'hésitez pas à réutiliser des fonctions vues dans les slides de la présentation http://rpubs.com/arifelk/GUEPARD2
 
 Une proposition de "solution" se trouve dans les fichiers pratique.Rmd et pratique.html
-
