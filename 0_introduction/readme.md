@@ -5,7 +5,7 @@
 - 12h30 : [Pause] Déjeuner
 - 13h45 : [Pratique] Data management avec R >> dplyr
 - 14h45 : [Pause]
-- 15h : [Présentation] Graphiques avec ggplot2
+- 15h00 : [Présentation] Graphiques avec ggplot2
 - 15h50 : [Pratique] Graphiques avec ggplot2
 - 16h30 : [Pause]
 - 16h45 : [Présentation] modèles & sélection de variables
@@ -97,7 +97,7 @@ Pour illustrer ce qu'est une table on utiliser la jeu de données `iris`
 - Mais les colonnes sont nommées alors on préfère utiliser le nom de la colonne, au cas où sa position changerait `iris[,"Petal.Length"]`
 - Enfin iris est également une liste on peut donc récupérer la 3ème colonne ainsi `iris[[3]]` ou ainsi `iris[["Petal.Length"]]`
 - Pour connaître les types de variables `sapply(iris,class)`, vous comprendrez la syntaxe plus tard
-
+- Pour avoir une vision complète du jeu de données `DataExplorer::create_report(iris)`. Pour le moment ce package n'est pas stable, il génère des erreurs sur beaucoup de datasets, il faut ouvrir des issues avec des exemples reproductibles sur le github du projet.
 
 ## Types de données
 Les characters/chaînes de caractères.<br>
@@ -117,12 +117,16 @@ Si vous voulez en savoir plus sur la manipulation d'environnements vous pouvez j
 
 
 ## Assignation et appels de fonction
+
 ### Assignation ou définition : `<-` et `=`
+
 On peut commencer par définir des objets de base par exemple 
 - un vecteur de unitaire : `x<-3` ou `x=3`
 - un vecteur plus grand : `y=c(3,1,5,3,5)` `z=1:10` en faisant appel à la notation `c()`
 Ainsi on a défini les objets `x`, `y`, `z` qui sont des vecteurs d'entiers (integer) ou de manière plus générique des vecteurs numériques.
+
 ### Appel de fonction et assignation du résultat de la fonction
+
 En SAS, une étape data consiste à préciser les données d'entrée et les données de sortie.
 En R, l'idée est un peu similaire, 
 - on fournit dans les arguments de la fonction, les données d'entrée.
@@ -166,7 +170,7 @@ Pour les opérations matricielles on utilisera une matrice de taille 10x3 que l'o
 - grep : pour trouver les éléments du vecteurs qui contiennent une chaîne de caractères ou une expression régulière. Retrouver les assignations avec le symbole `=` dans l'historique des commandes R `.Rhistory` `grep("<-",readLines(".Rhistory"))`
 - gsub : pour remplacer une valeur par une autre dans une chaîne de caractères, on peut utiliser une expression régulière. Remplacer les `<-` par des `=` dans l'historique des commandes `modif_log=gsub("<-","=",readLines(".Rhistory")),20)`
 
-## Aides sur les fonction
+### Aides sur les fonctions
 La fenêtre "Help" est le 4ème onglet de la fenêtre située par défaut en bas à droite de l'écran. Elle permet de rechercher de l'aide sur une fonction dans la documentation officielle de la fonction. Pour cela il suffit de taper le nom de la fonction dans la barre de recherche située en haut à droite de la fenêtre Help. Vous pouvez aussi appeler la fonction help(nom_de_la_fonction) ou ?nom_de_la_fonction.<br>
 La page d'aide est toujours construite de la même manière !
 1) Description brève de la ou des fonction(s) documentées
@@ -179,6 +183,7 @@ La page d'aide est toujours construite de la même manière !
 
 
 ## Les packages
+### Introduction
 Si vous voulez faire quelque chose, quelqu'un l'a sans doute déjà codé dans une fonction.<br>
 Une fonction vient rarement seule, et pour assurer la bonne documentation et le maintien à jour des fonctions, on les encapsule dans des packages ou librairies (libraries).<br>
 Il ne vous reste qu'à trouver le package.<br>
@@ -187,7 +192,7 @@ En général les packages sont stockés à deux endroits :
 - CRAN, avec des fichiers de description standard, une documentation dans un format standard et éventuellement des tests unitaires/tests de non-regressions pour faciliter la maintenance et le debug.
 - github.io (équivalent de gitlab.com) avec un format libre.
 
-## Chargement de packages
+### Chargement de packages
 Cette fenêtre "Packages" est le 3ème onglet de la fenêtre située par défaut en bas à droite de l'écran. Elle permet de rechercher un package dans la liste des packages déjà installés avec la barre de recherche située en haut à droite de la fenêtre.<br>
 Si un package est coché, cela veut dire qu'il est chargé (attached) dans l'environnement de travail (Global Environment) ie ses fonctions peuvent être appelées directement. Sinon il est possible de les appeler en faisant précéder leur nom de nom_du_package::<br>
 En général on évite de charger les packages manuellement, on préfère les appeler dans le script avec la fonction `library`. <br>
@@ -196,7 +201,8 @@ Si un package n'est pas installé vous pouvez l'installer de deux manières différ
 - cliquer le bouton `Install` situé en haut à gauche de la fenêtre, puis saisissez le nom du package à installer. 
 - utiliser la fonction `install.packages` en précisant le nom du package à installer.
 
-## Traitement vectoriel, moins de boucles
+## Performances
+### Traitement vectoriel, moins de boucles
 Dans R il y a des vecteurs partout, alors plutôt que d'écrire des boucles sur ces vecteurs, les fonctions sont naturellement généralisées pour effectuer des calculs sur l'ensemble des éléments du vecteur.<br>
 Lorsqu'on doit réaliser des boucles, par exemple réaliser une opération sur chaque variable d'une table (data.frame) :
 - l'instruction permettant de définir une boucle existe en R. <br>
@@ -208,14 +214,7 @@ Ce n'est plus vrai ! L'implémentation des boucles a évolué et les performances s
 Heureusement, parce que les fonctions apply, sapply, lapply, mapply, tapply qui devaient être utilisées à la place des boucles for, demandent un certain entraînement.<br>
 MAIS, si les boucles sont "autorisées" il ne faut pas pour autant en mettre partout. Comme dit au dessus, R est un langage vectoriel, donc on ne boucle <b>JAMAIS</b> sur les observations !!!
 
-
-
-
-
-
-
-
-## Ouvrir le gestionnaire de tâches pour surveiller la RAM et les CPUs
+### Ouvrir le gestionnaire de tâches pour surveiller la RAM et les CPUs
 Dans R, tous les objets, y compris les données, sont chargés en RAM, nos PC ont peu de RAM et comme le système d'exploitation est Windows, les objets en RAM ne sont pas "compressés" par l'OS et il n'existe pas de fichier de SWAP pour passer en mémoire dure lorsque la mémoire vive est débordée.<br>
 Il est donc important de surveiller la consommation de RAM de la session et de 
 - Régulièrement supprimer les objets VOLUMINEUX chargés en RAM (visibles dans l'environnement global) qui ne sont pas utiles.
