@@ -19,7 +19,7 @@ library(gbm)
 
 
 ##  Chargement des données
-```{r}
+```{r load data}
 load("../1_data_management_dplyr/fichiers_prepared.RData")
 ```
 
@@ -37,7 +37,7 @@ finess_et <- finess_et%>%
 
 ## Jointure INSEE & FINESS
 
-```{r}
+```{r jointure finess insee}
 nb_ET_CODGEO=finess_et%>%
   group_by(CODGEO)%>%
   summarise(nb_ET=n())
@@ -51,14 +51,14 @@ table(nb_ET_CODGEO$nb_ET)%>%head
 
 ## Sélection des variables pour entraîner un modèle
 
-```{r}
+```{r select et conversion numeric}
 data_model <-  nb_ET_CODGEO%>%
   select(-LIBGEO,-CODGEO)%>%
   mutate_if(is.character,as.numeric)
 ```
 
 ## Echantillonage pour séparer apprentissage/test ie train / test
-```{r}
+```{r echantillonage train test}
 train=sample(x = 1:nrow(data_model),size = round(.65*nrow(data_model)))
 ```
 
@@ -83,7 +83,7 @@ Vous pouvez vous référer à la présentation (Séminaire EIG #2) sur l'imputat
 https://gitlab.com/DREES_code/OSAM/enquete_oc
 
 
-```{r}
+```{r imputation par la moyenne}
 data_model_imputed_for_glm=data_model%>%
   mutate_all(function(x)ifelse(is.na(x),mean(x,na.rm=T),x))
 ```
@@ -100,20 +100,42 @@ On peut ajuster le modèle avec un certain nombre de parmaètres facultatifs.
 - Pondérer les observations avec `weights` (par exemple si on veut donner moins d'importance aux données plus anciennes). Des idées générales sur cette approche, valable pour la plupart des modèles prédictifs. <a href="https://stats.stackexchange.com/questions/196653/assigning-more-weight-to-more-recent-observations-in-regression">ici</a>.
 - On peut définir les `contrasts` pour préciser quelle catégorie doit être utilisée comme référence pour une variable explicative catégorielle.
 
-```{r}
+```{r glm de base}
 model <- glm(nb_ET~.,
              data=data_model_imputed_for_glm[train,],
              family=poisson(link = "log"))
 ```
 
 ## Coefficients du modèle
-```{r}
+```{r coeffs du glm}
 coeff_glm=summary(model)$coefficients
 coeff_glm
 ```
 
+<a href="https://www.r-bloggers.com/5-alternatives-to-the-default-r-outputs-for-glms-and-linear-models/amp/">D'autres visualisations </a>
+
+```{r coeffs glm avec stargazer}
+# install.packages("stargazer")
+stargazer::stargazer(model, type = "html")
+```
+
+
+```{r tentative flipRegression ,eval=FALSE, include=FALSE}
+
+# devtools::install_github("Displayr/flipRegression")
+# Ce package s'appuie sur des dizaines de packages + problème de "unable to move"...
+# library(flipRegression)
+# my.regression = Regression(nb_ET~.,
+#                            data = data_model_imputed_for_glm[train,],
+#                            show.labels = TRUE,
+#                            type ="poisson log")
+```
+
+
+
+
 ## Prediction
-```{r}
+```{r predictions du glm}
 pred_glmtrain=data.frame(pred=predict(model,newdata = data_model_imputed_for_glm[train,],type="response"), obs=data_model[train,]$nb_ET)
 
 perf_train=data.frame(pred=data_model[train,]$nb_ET, obs=data_model[train,]$nb_ET)
@@ -143,7 +165,7 @@ Cette approche est inspirée de l'étude de la courbe de ROC pour les modèles b
 
 L'inconvénient est que cette métrique mesure les inégalités en rang et pas en taille.
 
-```{r}
+```{r lorenz glm seul}
 pred_glmtest%>%
     na.omit%>%
     arrange(-pred)%>%
@@ -179,7 +201,7 @@ Par extension de l'AUC sous la ROC, on calcule l'AUC sous la courbe de Lorenz. <
 Cette métrique, translatée (X->2*X-1) pour se comparer à "random" est appelée indice de Gini.<br> 
 Pour bien faire, on peut rapporter le Gini du modèle au Gini de la "perfection" pour que notre indice ait des valeurs POSSIBLES entre 0 et 1.
 
-```{r}
+```{r metrique gini glm seul}
 Gini=function(pred){
   pred%>%
     na.omit%>%
@@ -226,7 +248,7 @@ Pour glmnet, on doit fournir Y comme un vecteur et X comme une matrice de valeur
 Par conséquent les variables catégorielles devront être binarisées (dummy variables), ce procédé s'appelle le one-hot encoding. C'est très simple en R, il suffit d'utiliser la fonction model.matrix. Un exemple <a href="https://www.r-bloggers.com/encoding-categorical-variables-one-hot-and-beyond/">ici</a><br>
 Pas besoin d'y recourir dans notre cas. Si 
 
-```{r}
+```{r séparation en cible et var explicatives}
 
 target_train = data_model_imputed_for_glm[train,]$nb_ET
 explanatory_train = data_model_imputed_for_glm[train,]%>%
@@ -245,7 +267,7 @@ thresh Convergence threshold for coordinate descent. Each inner coordinate-desce
 loop continues until the maximum change in the objective after any coefficient<br>
 update is less than thresh times the null deviance. Defaults value is 1E-7.<br>
 
-```{r}
+```{r glmnet}
 glmnet_model <- glmnet(x=explanatory_train,
        y=target_train,
        family="poisson",
@@ -268,7 +290,7 @@ smin=min(glmnet_model$lambda)
 ```
 ## [Avancé] cross-validation et choix du lambda optimal
 Pour automatiser et rationnaliser le choix du lambda on fait de la validation croisée (cross-validation) ie on coupe le dataset en NFOLDS, disons en 10, et entraîne sur 90% vs validation sur 10% 10 fois.
-```{r}
+```{r cv.glmnet}
 
 NFOLDS=10
 for (alpha in 0:10/10){
@@ -289,9 +311,9 @@ glmnet_cv = cv.glmnet(x = explanatory_train, y = target_train,
                               # 5-fold cross-validation
                               nfolds = NFOLDS,
                               # valeurs élevée pour un entraînement plus rapide mais moins performant
-                              thresh = 3e-5,
+                              thresh = 1e-3,
                               # On limite le nombre d'itérations
-                              maxit = 1e6)
+                              maxit = 1e5)
 s1se=glmnet_cv$lambda.1se
 smin=glmnet_cv$lambda.min
   pred_glmnettest=data.frame(pred=predict(glmnet_cv,newx = explanatory_test,type="response",s=0)[,1],obs=target_test)
@@ -310,14 +332,14 @@ Gini(pred_glmtest)
 ```
 
 ## Comparaison pour différents lambda
-```{r}
+```{r plot_glmnet_cv}
 plot(glmnet_cv)
 ```
 
 ## Coefficients du modèle pour le "meilleur" lambda
 Des idées pratiques en anglais <a href="https://stats.stackexchange.com/questions/77546/how-to-interpret-glmnet">ici</a> <br>
 et théoriques en français <a href="https://pbil.univ-lyon1.fr/R/pdf/br5.pdf">ici</a> 
-```{r}
+```{r metriques_glmnet_cd}
 s1se=glmnet_cv$lambda.1se
 smin=glmnet_cv$lambda.min
 coeff_glmnet=coef(glmnet_model,s=s1se)
@@ -328,7 +350,7 @@ coeff_glmnet
 # Comparaison des modèles GLM vs GLMNET
 
 ## Comparaison des coefficients
-```{r}
+```{r coefficients_glm_glmnet}
 # On prépare la table des coeffs de glmnet
 coeff_glmnet=as.matrix(coeff_glmnet)
 coeff_glmnet=data.frame(var=rownames(coeff_glmnet),coeff_glmnet=coeff_glmnet[,1])
@@ -351,7 +373,7 @@ comparaison_coeff%>%
 
 Pour bien comprendre ce qui se passe, on jette un oeil à la matrice des corrélations. On se rend compte que lorsque deux variables sont très corrélées, en général le glmnet n'apprend que sur l'une des deux ie le coeff de l'autre passe à 0 ! C'est de la sélection de variables
 
-```{r}
+```{r chef correlation}
 cor(explanatory_train)%>%as.data.frame->cormat
 rownames(cormat) <- colnames(cormat)
 knitr::kable(cormat)
@@ -360,7 +382,7 @@ knitr::kable(cormat)
 
 
 ## Prediction du GLMNET
-```{r}
+```{r prediction glmnet}
 pred_glmnettrain=data.frame(pred=predict(glmnet_model,newx = explanatory_train,type="response")[,1],obs=target_train)
 
 pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,type="response",s=smin)[,1],obs=target_test)
@@ -368,7 +390,7 @@ pred_glmnettest=data.frame(pred=predict(glmnet_model,newx = explanatory_test,typ
 
 ## Courbe de Lorenz 
 
-```{r}
+```{r lorenz_glmnet_glm}
 pred_glmnettest%>%
     na.omit%>%
     arrange(-pred)%>%
@@ -387,7 +409,7 @@ g%>%ggplotly
 
 ## Coeff de Gini
 
-```{r}
+```{r gini_glm_glmnet}
 Gini(pred_glmtest)
 Gini(pred_glmnettest)
 Gini(perf_test)
@@ -396,6 +418,26 @@ Gini(pred_glmnettrain)
 Gini(perf_train)
 ```
 
+# Arbre de décision (regression et classification)
+
+Commençons par utiliser un arbre de regression pour expliquer simplement le nombre d'établissements dans la commune. Ceci nous permettra de détecter les variables les plus influentes.
+
+```{r rpart}
+library(rpart)
+options_rpart=rpart.control(minbucket =100, cp = 1E-3, maxdepth = 5)
+tree <- rpart(nb_ET~., data=data_model_imputed_for_glm[train,],control = options_rpart)
+rpart.plot::rpart.plot(tree,roundint=FALSE)
+```
+On offset la variable NBMENFISC14 pour calculer un nombre d'établissement par milliers de ménages. C'est aussi l'occasion d'introduire une autre visualisation plus interactive.
+
+```{r}
+tree <- rpart(1000*nb_ET/NBMENFISC14~.-NBMENFISC14-NBPERSMENFISC14, data=data_model_imputed_for_glm[train,],control = options_rpart)
+
+visNetwork::visTree(tree, main = "Arbre de décision interactif",
+        width = "80%",  height = "400px")
+```
+
+
 # GBM (gradient boosting method)
 
 
@@ -403,11 +445,11 @@ Gini(perf_train)
 L'avantage des modèles basés sur des arbres de décision, c'est qu'un arbre de décision sait bien gérer les NA.<br>
 Par exemple pour un arbre binaire, on peut imaginer séparer les NA dans un 3ème split, ou bien séparer NA vs le reste. La contrainte imposée par les variables continues est bien moins forte que dans un GLM. Avec un arbre si on coupe X à un seuil th (choisi par le modèle), on peut déciser de regrouper les NA avec le groupe 1 `X<th` ou avec le groupe 2 `X>th`.<br>
 L'imputation n'est pas nécessaire ici.
-```{r}
+```{r aperçu datamodel pour gbm}
 data_model%>%head
 ```
 
-```{r}
+```{r gbm}
 params=c(shrinkage=.01,
          nb_trees=1000,
          depth=10,
@@ -443,7 +485,7 @@ Il y a plus d'overfitting (écart de 1 point entre train et test) dans le GBM qu
 
 ## Courbe de Lorenz
 
-```{r}
+```{r lorenz_all}
 
 pred_gbmtest%>%
     na.omit%>%
@@ -465,7 +507,7 @@ g%>%ggplotly
 
 ### Importance des variables
 
-```{r}
+```{r importance des variables gbm}
 vars=summary(gbm_model)$var%>%as.character
 summary(gbm_model)
 ```
@@ -474,7 +516,7 @@ summary(gbm_model)
 ### Effet marginal moyen
 Attention, contrairement à un GLM, ces courbes ne s'interprètent pas comme des effets toutes choses égales par ailleurs parce qu'elles s'appuient sur la distribution réelle des données.
 
-```{r}
+```{r effets marginaux gbm}
 plot(gbm_model,i.var=vars[1])
 plot(gbm_model,i.var=vars[2])
 plot(gbm_model,i.var=vars[3])
@@ -488,14 +530,14 @@ Si nécessaire on peut imposer la monotonie des variables, ceci réduira le sura
 
 dans gbm : `var.monotone` il convient de donner un vecteur nommé (avec les noms des variables explicatives) et des valeurs -1 si décroissante, 1 si croissante, 0 si absence de contrainte.<br>
 
-```{r}
+```{r ajout de la contrainte de monotonie}
 monotony=rep(0,ncol(data_model)-1)
 names(monotony) <- setdiff(names(data_model),"nb_ET")
-monotony["NBMENFISC14"] <- 1
+monotony["TP60AGE114"] <- 1
 ```
 
 
-```{r}
+```{r re-run gbm}
 params=c(shrinkage=.01,
          nb_trees=1000,
          depth=10,
@@ -526,6 +568,10 @@ print(paste("gbm train:",Gini(pred_gbmtrain)))
 print(paste("glm:",Gini(pred_glmnettest)))
 ```
 
+
+```{r effets marginaux gbm avec contrainte monotonie}
+plot(gbm_model,i.var="TP60AGE114")
+```
 
 Pour en savoir plus sur la simplification des modèles de machine learning complexes, voici un article sur "interpretable machine learning" <a href="https://mlr-org.github.io/interpretable-machine-learning-iml-and-mlr/">IML</a><br>
 
